@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    /* Make all links visible and clickable */
+    a {
+        @apply underline cursor-pointer;
+        color: #2563eb; /* blue-600 */
+        text-decoration: underline;
+    }
+    
+    a:hover {
+        color: #1e40af; /* blue-800 */
+    }
+    
+    /* Button-style links should not have underline */
+    a.text-white,
+    a.bg-blue-500,
+    a.bg-gray-500,
+    a.bg-yellow-500,
+    a.bg-green-500,
+    a.bg-red-500 {
+        @apply no-underline;
+    }
+    
+    /* Ensure links in tables are visible */
+    table a {
+        @apply underline font-medium;
+        color: #2563eb;
+    }
+    
+    table a:hover {
+        color: #1e40af;
+    }
+    
+    /* Links with blue color classes */
+    a.text-blue-600 {
+        color: #2563eb !important;
+        text-decoration: underline;
+    }
+    
+    a.text-blue-800 {
+        color: #1e40af !important;
+        text-decoration: underline;
+    }
+}
