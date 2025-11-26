@@ -72,17 +72,26 @@ EMAIL_RATE_LIMIT_SECONDS=10  # Time window in seconds between emails to the same
 php artisan migrate
 ```
 
-8. Build frontend assets:
+8. Create initial user (optional):
+```bash
+# Interactive mode (will prompt for details)
+php artisan user:create
+
+# Non-interactive mode (provide all options)
+php artisan user:create --email=admin@example.com --name="Admin User" --password=yourpassword
+```
+
+9. Build frontend assets:
 ```bash
 npm run build
 ```
 
-9. Start the development server:
+10. Start the development server:
 ```bash
 php artisan serve
 ```
 
-10. **Important**: Start the queue worker in a separate terminal:
+11. **Important**: Start the queue worker in a separate terminal:
 ```bash
 php artisan queue:work
 ```
@@ -91,7 +100,25 @@ php artisan queue:work
 
 ### 1. Create an Account
 
-Register a new account or login with existing credentials.
+You can create a user account in two ways:
+
+**Option A: Using the Artisan Command (Recommended for initial setup)**
+```bash
+php artisan user:create
+```
+
+This will prompt you for:
+- Email address
+- Name
+- Password (with confirmation)
+
+Or provide all options at once:
+```bash
+php artisan user:create --email=user@example.com --name="John Doe" --password=securepassword
+```
+
+**Option B: Using the Web Interface**
+Register a new account through the web interface or login with existing credentials.
 
 ### 2. Configure SMTP
 
