@@ -136,8 +136,8 @@ class SmtpConfigurationController extends Controller
                 ],
             ]);
 
-            // Try to send a test email to the from_email address
-            \Illuminate\Support\Facades\Mail::raw('SMTP Connection Test', function ($message) use ($validated) {
+            // Try to send a test email to the from_email address using SMTP mailer explicitly
+            \Illuminate\Support\Facades\Mail::mailer('smtp')->raw('SMTP Connection Test', function ($message) use ($validated) {
                 $message->to($validated['from_email'])
                     ->subject('SMTP Connection Test')
                     ->from($validated['from_email']);

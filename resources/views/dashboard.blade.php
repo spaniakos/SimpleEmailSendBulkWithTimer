@@ -35,6 +35,48 @@
                 </div>
             </div>
 
+            <!-- Queue Status -->
+            @if($queueJobs > 0 || $pendingRecipients > 0)
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <h3 class="text-lg font-semibold text-yellow-800 mb-2">Queue Status</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium text-gray-700">Jobs in Queue:</span>
+                        <span class="ml-2 font-bold {{ $readyJobs > 0 ? 'text-blue-600' : 'text-gray-600' }}">{{ $queueJobs }}</span>
+                        @if($readyJobs > 0)
+                            <span class="text-xs text-blue-600">({{ $readyJobs }} ready)</span>
+                        @endif
+                    </div>
+                    @if($delayedJobs > 0)
+                    <div>
+                        <span class="font-medium text-gray-700">Delayed Jobs:</span>
+                        <span class="ml-2 font-bold text-yellow-600">{{ $delayedJobs }}</span>
+                        <span class="text-xs text-gray-500">(waiting for rate limit)</span>
+                    </div>
+                    @endif
+                    @if($failedJobs > 0)
+                    <div>
+                        <span class="font-medium text-gray-700">Failed Jobs:</span>
+                        <span class="ml-2 font-bold text-red-600">{{ $failedJobs }}</span>
+                    </div>
+                    @endif
+                    @if($pendingRecipients > 0 && $queueJobs == 0)
+                    <div>
+                        <span class="font-medium text-gray-700">Pending Recipients:</span>
+                        <span class="ml-2 font-bold text-orange-600">{{ $pendingRecipients }}</span>
+                        <span class="text-xs text-gray-500">(no jobs in queue)</span>
+                    </div>
+                    @endif
+                </div>
+                @if($pendingRecipients > 0 && $queueJobs == 0)
+                <div class="mt-3 text-sm text-yellow-700">
+                    <strong>⚠️ Warning:</strong> You have {{ $pendingRecipients }} pending recipients but no jobs in the queue. 
+                    This might indicate jobs were released due to rate limiting. Make sure <code class="bg-yellow-100 px-1 rounded">php artisan queue:work</code> is running.
+                </div>
+                @endif
+            </div>
+            @endif
+
             <!-- Recent Jobs -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">

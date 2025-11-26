@@ -33,6 +33,27 @@
                 </div>
             @endif
 
+            <!-- Email Preview -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold mb-4">Email Preview</h3>
+                    <dl class="space-y-4">
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500 mb-1">Subject</dt>
+                            <dd class="text-lg font-semibold text-gray-900">{{ $emailJob->subject }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-sm font-medium text-gray-500 mb-2">Email Content</dt>
+                            <dd class="border border-gray-300 rounded-md p-4 bg-gray-50">
+                                <div class="email-preview">
+                                    {!! $emailJob->html_content !!}
+                                </div>
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+
             <!-- Job Info -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6">
@@ -52,9 +73,6 @@
                                         {{ ucfirst($emailJob->status) }}
                                     </span>
                                 </dd>
-                                
-                                <dt class="text-sm font-medium text-gray-500">Subject</dt>
-                                <dd class="text-sm text-gray-900">{{ $emailJob->subject }}</dd>
                                 
                                 <dt class="text-sm font-medium text-gray-500">SMTP Configuration</dt>
                                 <dd class="text-sm text-gray-900">{{ $emailJob->smtpConfiguration->name ?? $emailJob->smtpConfiguration->host }}</dd>

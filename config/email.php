@@ -12,7 +12,7 @@ return [
     */
 
     'rate_limit' => [
-        'emails_per_domain' => env('EMAIL_RATE_LIMIT_COUNT', 1),
+        'emails_per_domain' => env('MAIL_RATE_LIMIT_COUNT', env('EMAIL_RATE_LIMIT_COUNT', 1)),
         'seconds' => env('EMAIL_RATE_LIMIT_SECONDS', 10),
     ],
 ];

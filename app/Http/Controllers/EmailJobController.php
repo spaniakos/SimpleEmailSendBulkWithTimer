@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\SendEmailJob;
+use App\Jobs\ProcessEmailJob;
 use App\Models\EmailJob;
 use App\Models\EmailRecipient;
 use App\Models\SmtpConfiguration;
@@ -30,7 +30,13 @@ class EmailJobController extends Controller
             'name' => 'nullable|string|max:255',
             'smtp_configuration_id' => 'required|exists:smtp_configurations,id',
             'subject' => 'required|string|max:255',
-            'html_content' => 'required|string',
+            'html_content' => ['required', 'string', function ($attribute, $value, $fail) {
+                // Check if content is meaningful (not just empty tags)
+                $stripped = strip_tags(trim($value));
+                if (empty($stripped)) {
+                    $fail('The email content cannot be empty.');
+                }
+            }],
             'csv_file' => 'nullable|file|mimes:csv,txt|max:10240',
             'csv_text' => 'nullable|string',
         ]);
@@ -60,23 +66,23 @@ class EmailJobController extends Controller
             'failed_count' => 0,
         ]);
 
-        // Create recipients and dispatch jobs
+        // Create recipients
         foreach ($emails as $email) {
             $domain = $this->extractDomain($email);
             
-            $recipient = EmailRecipient::create([
+            EmailRecipient::create([
                 'email_job_id' => $emailJob->id,
                 'email_address' => $email,
                 'domain' => $domain,
                 'status' => 'pending',
             ]);
-
-            // Dispatch job
-            SendEmailJob::dispatch($recipient, $emailJob, $smtpConfig);
         }
 
+        // Dispatch single batch-processing job instead of N individual jobs
+        ProcessEmailJob::dispatch($emailJob, $smtpConfig);
+
         return redirect()->route('jobs.show', $emailJob)
-            ->with('success', 'Email job created successfully. Emails are being sent.');
+            ->with('success', 'Email job created successfully. Emails are being sent in batches.');
     }
 
     public function show(EmailJob $job)
@@ -155,13 +161,14 @@ class EmailJobController extends Controller
 
         $emailJob->update(['status' => 'processing']);
 
-        // Dispatch remaining pending recipients
-        $pendingRecipients = $emailJob->recipients()
+        // Check if there are pending recipients
+        $pendingCount = $emailJob->recipients()
             ->where('status', 'pending')
-            ->get();
+            ->count();
 
-        foreach ($pendingRecipients as $recipient) {
-            SendEmailJob::dispatch($recipient, $emailJob, $emailJob->smtpConfiguration);
+        if ($pendingCount > 0) {
+            // Dispatch the batch-processing job to continue processing
+            ProcessEmailJob::dispatch($emailJob, $emailJob->smtpConfiguration);
         }
 
         return back()->with('success', 'Job resumed successfully.');

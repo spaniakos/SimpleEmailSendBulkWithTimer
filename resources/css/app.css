@@ -3,17 +3,20 @@
 @tailwind utilities;
 
 @layer base {
+
     /* Make all links visible and clickable */
     a {
         @apply underline cursor-pointer;
-        color: #2563eb; /* blue-600 */
+        color: #2563eb;
+        /* blue-600 */
         text-decoration: underline;
     }
-    
+
     a:hover {
-        color: #1e40af; /* blue-800 */
+        color: #1e40af;
+        /* blue-800 */
     }
-    
+
     /* Button-style links should not have underline */
     a.text-white,
     a.bg-blue-500,
@@ -23,25 +26,129 @@
     a.bg-red-500 {
         @apply no-underline;
     }
-    
+
     /* Ensure links in tables are visible */
     table a {
         @apply underline font-medium;
         color: #2563eb;
     }
-    
+
     table a:hover {
         color: #1e40af;
     }
-    
+
     /* Links with blue color classes */
     a.text-blue-600 {
         color: #2563eb !important;
         text-decoration: underline;
     }
-    
+
     a.text-blue-800 {
         color: #1e40af !important;
+        text-decoration: underline;
+    }
+}
+
+@layer components {
+
+    /* Quill Editor Styling */
+    #quill-editor .ql-container {
+        @apply border-gray-300 rounded-b-md;
+        font-size: 16px;
+    }
+
+    #quill-editor .ql-toolbar {
+        @apply border-gray-300 rounded-t-md bg-gray-50;
+    }
+
+    #quill-editor .ql-editor {
+        min-height: 300px;
+    }
+
+    #quill-editor .ql-editor.ql-blank::before {
+        @apply text-gray-400;
+        font-style: normal;
+    }
+
+    /* Source code textarea styling */
+    #html_source {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    /* Source button styling */
+    .ql-toolbar .ql-source {
+        width: 28px;
+        height: 24px;
+        display: inline-block;
+        cursor: pointer;
+    }
+
+    .ql-toolbar .ql-source svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .ql-toolbar .ql-source:hover {
+        color: #06c;
+    }
+
+    .ql-toolbar .ql-source.ql-active {
+        color: #06c;
+    }
+
+    /* Email preview styling */
+    .email-preview {
+        max-width: 100%;
+        word-wrap: break-word;
+    }
+
+    .email-preview h1,
+    .email-preview h2,
+    .email-preview h3,
+    .email-preview h4,
+    .email-preview h5,
+    .email-preview h6 {
+        font-weight: 600;
+        margin-top: 1em;
+        margin-bottom: 0.5em;
+    }
+
+    .email-preview h1 {
+        font-size: 2em;
+    }
+
+    .email-preview h2 {
+        font-size: 1.5em;
+    }
+
+    .email-preview h3 {
+        font-size: 1.25em;
+    }
+
+    .email-preview p {
+        margin-bottom: 1em;
+        line-height: 1.6;
+    }
+
+    .email-preview ul,
+    .email-preview ol {
+        margin-left: 1.5em;
+        margin-bottom: 1em;
+    }
+
+    .email-preview li {
+        margin-bottom: 0.5em;
+    }
+
+    .email-preview img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .email-preview a {
+        color: #2563eb;
         text-decoration: underline;
     }
 }
