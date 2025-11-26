@@ -15,6 +15,15 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
+/**
+ * @deprecated This class is deprecated. Use ProcessEmailJob instead.
+ * 
+ * SendEmailJob was the original implementation that created one queue job per email recipient.
+ * This has been replaced by ProcessEmailJob which processes recipients in batches for better
+ * queue management and performance.
+ * 
+ * This class is kept for backward compatibility and may be removed in a future version.
+ */
 class SendEmailJob implements ShouldQueue
 {
     use Queueable, InteractsWithQueue, SerializesModels;

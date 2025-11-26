@@ -50,6 +50,8 @@ php artisan test --filter test_user_can_create_smtp_configuration
 - Email job updates recipient status on success
 - Email job updates counters on success
 
+**Note**: `SendEmailJob` is deprecated. New email jobs use `ProcessEmailJob` which processes recipients in batches. Tests for `SendEmailJob` are kept for backward compatibility.
+
 ## Test Environment
 
 Tests use:

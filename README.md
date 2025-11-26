@@ -8,7 +8,8 @@ A Laravel 12 application for sending bulk emails with rate limiting, queue manag
 - **SMTP Configuration**: Manage multiple SMTP configurations per user
 - **Bulk Email Sending**: Send emails to multiple recipients from CSV files or pasted text
 - **Queue System**: Database-based queue system for background email processing
-- **Rate Limiting**: Maximum 1 email per 10 seconds per domain
+- **Batch Processing**: Intelligent batch processing of emails (configurable batch size)
+- **Rate Limiting**: Configurable rate limiting per sender domain
 - **Real-time Reporting**: Track sent/total emails with progress indicators
 - **Job Management**: Create, pause, resume, and delete email jobs
 - **Tailwind CSS**: Modern, responsive UI built with Tailwind CSS
@@ -62,8 +63,8 @@ SESSION_DRIVER=database
 CACHE_DRIVER=database
 
 # Email Rate Limiting (optional - defaults shown)
-EMAIL_RATE_LIMIT_COUNT=1
-EMAIL_RATE_LIMIT_SECONDS=10
+MAIL_RATE_LIMIT_COUNT=1      # Number of emails to process per batch (also controls batch size)
+EMAIL_RATE_LIMIT_SECONDS=10  # Time window in seconds between emails to the same domain
 ```
 
 7. Run migrations:
@@ -149,25 +150,43 @@ John Doe,john@example.com,Company A
 Jane Smith,jane@example.com,Company B
 ```
 
+## Architecture
+
+The application uses a **batch processing architecture** for efficient email sending:
+
+- **ProcessEmailJob**: A single queue job that processes recipients in batches
+- **Batch Size**: Controlled by `MAIL_RATE_LIMIT_COUNT` (default: 1)
+- **Automatic Continuation**: The job automatically dispatches itself for the next batch when more recipients remain
+- **Rate Limiting**: Built-in rate limiting per sender domain
+
+### Benefits
+
+- **Better Queue Management**: One job per email campaign instead of one job per recipient
+- **Controlled Processing**: Processes emails in configurable batches
+- **Smarter Rate Limiting**: Automatically waits when rate limits are hit
+- **Pause/Resume Support**: Can pause and resume entire campaigns
+- **Error Resilience**: Failed emails don't block the entire batch
+
 ## Rate Limiting
 
-The system enforces a configurable rate limit per domain to prevent sending too many emails too quickly. By default, it's set to **1 email per 10 seconds per domain**.
+The system enforces a configurable rate limit per **sender domain** (not recipient domain) to prevent sending too many emails too quickly. By default, it's set to **1 email per 10 seconds per sender domain**.
 
 ### Configuration
 
-You can customize the rate limiting in your `.env` file:
+You can customize the rate limiting and batch size in your `.env` file:
 
 ```env
-EMAIL_RATE_LIMIT_COUNT=1      # Number of emails allowed per domain
-EMAIL_RATE_LIMIT_SECONDS=10   # Time window in seconds
+MAIL_RATE_LIMIT_COUNT=1      # Number of emails to process per batch (also controls batch size)
+EMAIL_RATE_LIMIT_SECONDS=10  # Time window in seconds between emails from the same sender domain
 ```
 
 ### How It Works
 
-- If you're sending to multiple @gmail.com addresses, only the configured number of emails will be sent within the time window
-- Different domains can send simultaneously
-- The system automatically queues and delays emails to respect this limit
-- Example: With `EMAIL_RATE_LIMIT_COUNT=1` and `EMAIL_RATE_LIMIT_SECONDS=10`, only 1 email per 10 seconds will be sent to each domain
+- **Batch Processing**: The system processes `MAIL_RATE_LIMIT_COUNT` recipients per batch
+- **Rate Limiting**: After sending an email, the system waits `EMAIL_RATE_LIMIT_SECONDS` before sending the next email from the same sender domain
+- **Automatic Queuing**: If rate limit is hit during batch processing, the job dispatches itself again after the delay
+- **Domain-Based**: Rate limiting is based on the sender's domain (from SMTP configuration), not recipient domains
+- **Example**: With `MAIL_RATE_LIMIT_COUNT=1` and `EMAIL_RATE_LIMIT_SECONDS=10`, the system will send 1 email, wait 10 seconds, then send the next email from the same sender domain
 
 ## Queue Worker
 
@@ -216,10 +235,27 @@ php artisan test --coverage
 
 - **SmtpConfigurationTest**: Tests SMTP configuration CRUD operations and authorization
 - **EmailJobTest**: Tests email job creation, CSV parsing, and job management
-- **SendEmailJobTest**: Tests email sending, rate limiting, and job execution
+- **SendEmailJobTest**: Tests email sending, rate limiting, and job execution (Note: SendEmailJob is deprecated, new jobs use ProcessEmailJob)
 - **Authorization Tests**: Ensures users can only access their own data
 
 All tests use database transactions and factories for clean test data.
+
+## Architecture Notes
+
+### Batch Processing System
+
+The application uses `ProcessEmailJob` for efficient email processing:
+
+- **One job per campaign**: When you create an email job, only one `ProcessEmailJob` is dispatched
+- **Batch processing**: Processes recipients in batches (controlled by `MAIL_RATE_LIMIT_COUNT`)
+- **Self-dispatching**: Automatically dispatches itself for the next batch when more recipients remain
+- **Rate limiting**: Built-in rate limiting per sender domain with automatic delays
+
+### Deprecated Code
+
+- **SendEmailJob**: The old implementation (one job per recipient) is deprecated but kept for backward compatibility
+- New email jobs automatically use `ProcessEmailJob`
+- Old jobs using `SendEmailJob` will continue to work but new jobs will use the batch processing system
 
 ## Troubleshooting
 
@@ -229,12 +265,14 @@ All tests use database transactions and factories for clean test data.
 - Verify the queue connection is set to `database` in `.env`
 - Check application logs: `storage/logs/laravel.log`
 - Test SMTP connection using the "Test Connection" button
+- Check queue status on the dashboard to see if jobs are waiting
 
 ### Rate limiting issues
-- The system automatically handles rate limiting
-- Emails will be queued and sent when the rate limit allows
+- The system automatically handles rate limiting per sender domain
+- Emails are processed in batches and queued when rate limits are hit
 - Check the job status to see pending emails
-- Adjust `EMAIL_RATE_LIMIT_SECONDS` in `.env` if needed
+- Adjust `MAIL_RATE_LIMIT_COUNT` to process more emails per batch
+- Adjust `EMAIL_RATE_LIMIT_SECONDS` in `.env` to change the delay between emails
 
 ### Authorization errors
 - Ensure you're logged in
