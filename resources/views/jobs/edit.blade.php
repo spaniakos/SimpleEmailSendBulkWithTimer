@@ -51,7 +51,7 @@
                         <!-- HTML Content -->
                         <div class="mb-4">
                             <x-input-label for="html_content" :value="__('HTML Content')" />
-                            <textarea id="html_content" name="html_content" class="mt-1 w-full" required>{{ old('html_content', $job->html_content) }}</textarea>
+                            <textarea id="html_content" name="html_content" class="mt-1 w-full">{{ old('html_content', $job->html_content) }}</textarea>
                             <p class="mt-2 text-sm text-gray-600">Use the editor above to format your email content. Images and PDFs can be uploaded directly.</p>
                             <p class="mt-1 text-xs text-red-600 hidden" id="html_content_error">Please enter email content.</p>
                         </div>
@@ -211,8 +211,16 @@
             var errorMessage = document.getElementById('html_content_error');
             
             form.addEventListener('submit', function(e) {
+                // Sync TinyMCE content to textarea before validation
+                tinymce.triggerSave();
+                
                 // Get content from TinyMCE
                 var htmlContent = tinymce.get('html_content').getContent();
+                
+                // Also get from textarea (in case TinyMCE hasn't synced yet)
+                if (!htmlContent) {
+                    htmlContent = document.getElementById('html_content').value;
+                }
                 
                 // Check if content has actual text (not just HTML tags)
                 var textContent = htmlContent.replace(/<[^>]*>/g, '').trim();
@@ -220,6 +228,7 @@
                 // Ensure we have at least some content
                 if (!htmlContent || htmlContent === '' || !textContent) {
                     e.preventDefault();
+                    e.stopPropagation();
                     if (errorMessage) {
                         errorMessage.classList.remove('hidden');
                         errorMessage.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -229,6 +238,8 @@
                     return false;
                 }
                 
+                // Update textarea with content before submission
+                document.getElementById('html_content').value = htmlContent;
                 if (errorMessage) {
                     errorMessage.classList.add('hidden');
                 }
