@@ -36,21 +36,36 @@ class ProcessEmailJob implements ShouldQueue
      */
     public function handle(): void
     {
-        // Refresh models from database
-        $this->emailJob->refresh();
-        $this->smtpConfig->refresh();
-
-        // Check if job is paused
-        if ($this->emailJob->status === 'paused') {
-            Log::info("Email job {$this->emailJob->id} is paused. Stopping processing.");
+        // Check for duplicate processing using cache lock
+        $lockKey = "email_job_processing_{$this->emailJob->id}";
+        if (Cache::has($lockKey)) {
+            // Another instance is already processing, release this one with a short delay
+            Log::info("Email job {$this->emailJob->id} is already being processed by another instance. Releasing this job.");
+            $this->release(5); // Wait 5 seconds before retrying
             return;
         }
+        
+        // Set lock to prevent duplicate processing (expires in 60 seconds)
+        Cache::put($lockKey, true, 60);
 
-        // Check if job is already completed or failed
-        if (in_array($this->emailJob->status, ['completed', 'failed'])) {
-            Log::info("Email job {$this->emailJob->id} is already {$this->emailJob->status}. Stopping processing.");
-            return;
-        }
+        try {
+            // Refresh models from database
+            $this->emailJob->refresh();
+            $this->smtpConfig->refresh();
+
+            // Check if job is paused
+            if ($this->emailJob->status === 'paused') {
+                Log::info("Email job {$this->emailJob->id} is paused. Stopping processing.");
+                Cache::forget($lockKey);
+                return;
+            }
+
+            // Check if job is already completed or failed
+            if (in_array($this->emailJob->status, ['completed', 'failed'])) {
+                Log::info("Email job {$this->emailJob->id} is already {$this->emailJob->status}. Stopping processing.");
+                Cache::forget($lockKey);
+                return;
+            }
 
         // Update job status to processing if it's pending
         if ($this->emailJob->status === 'pending') {
@@ -74,6 +89,7 @@ class ProcessEmailJob implements ShouldQueue
             // No more pending recipients, check if job is complete
             $this->updateJobStatus();
             Log::info("Email job {$this->emailJob->id} has no more pending recipients.");
+            Cache::forget($lockKey);
             return;
         }
 
@@ -85,15 +101,14 @@ class ProcessEmailJob implements ShouldQueue
             $lastSent = Cache::get($cacheKey);
             
             if ($lastSent && ($now - $lastSent) < $rateLimitSeconds) {
-                // Rate limit not met, we'll process remaining recipients in next batch
-                // Dispatch this job again with a delay
+                // Rate limit not met, release this job back to queue with delay
                 $delay = $rateLimitSeconds - ($now - $lastSent);
-                Log::info("Rate limit reached for domain {$senderDomain}. Dispatching ProcessEmailJob again with {$delay}s delay.");
+                Log::info("Rate limit reached for domain {$senderDomain}. Releasing job back to queue with {$delay}s delay.");
                 
-                // Dispatch next batch after rate limit delay
-                ProcessEmailJob::dispatch($this->emailJob, $this->smtpConfig)
-                    ->delay(now()->addSeconds($delay));
-                break;
+                // Release this job instance back to queue with delay (instead of dispatching new one)
+                Cache::forget($lockKey); // Clear lock before releasing
+                $this->release($delay);
+                return;
             }
 
             try {
@@ -132,16 +147,23 @@ class ProcessEmailJob implements ShouldQueue
         // Update job status
         $this->updateJobStatus();
 
-        // If there are more pending recipients, dispatch this job again
+        // If there are more pending recipients, release this job back to queue
         $remainingCount = EmailRecipient::where('email_job_id', $this->emailJob->id)
             ->where('status', 'pending')
             ->count();
 
         if ($remainingCount > 0 && $this->emailJob->status !== 'paused') {
-            Log::info("Email job {$this->emailJob->id} has {$remainingCount} remaining recipients. Dispatching next batch.");
-            ProcessEmailJob::dispatch($this->emailJob, $this->smtpConfig);
+            Log::info("Email job {$this->emailJob->id} has {$remainingCount} remaining recipients. Releasing job back to queue.");
+            Cache::forget($lockKey); // Clear lock before releasing
+            $this->release(0); // Release immediately (no delay needed, rate limit already respected)
+            return; // Exit after releasing
         } else {
             Log::info("Email job {$this->emailJob->id} processing complete. Processed {$processedCount} recipients in this batch.");
+            Cache::forget($lockKey); // Clear lock when done
+        }
+        } finally {
+            // Ensure lock is always cleared, even if an exception occurs
+            Cache::forget($lockKey);
         }
     }
 

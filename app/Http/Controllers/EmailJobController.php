@@ -8,6 +8,7 @@ use App\Models\EmailRecipient;
 use App\Models\SmtpConfiguration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 
 class EmailJobController extends Controller
@@ -167,8 +168,13 @@ class EmailJobController extends Controller
             ->count();
 
         if ($pendingCount > 0) {
-            // Dispatch the batch-processing job to continue processing
-            ProcessEmailJob::dispatch($emailJob, $emailJob->smtpConfiguration);
+            // Check if a job is already queued/processing for this email job
+            $lockKey = "email_job_processing_{$emailJob->id}";
+            if (!Cache::has($lockKey)) {
+                // No job is currently processing, dispatch a new one
+                ProcessEmailJob::dispatch($emailJob, $emailJob->smtpConfiguration);
+            }
+            // If lock exists, a job is already processing, so we don't need to dispatch another
         }
 
         return back()->with('success', 'Job resumed successfully.');
