@@ -11,14 +11,11 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
-        <!-- Quill Editor CSS -->
-        <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+        <!-- TinyMCE Editor -->
+        <script src="https://cdn.tiny.cloud/1/hrptgrh2pgep4iokfkbvs2jaqaw0ptg3hh2k9tsncqf6m375/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-
-        <!-- Quill Editor JS -->
-        <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     </head>
     <body class="font-sans antialiased">
         <div class="min-h-screen bg-gray-100">

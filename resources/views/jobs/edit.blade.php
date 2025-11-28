@@ -51,13 +51,8 @@
                         <!-- HTML Content -->
                         <div class="mb-4">
                             <x-input-label for="html_content" :value="__('HTML Content')" />
-                            <!-- Hidden textarea for form submission -->
-                            <textarea id="html_content" name="html_content" class="hidden" required>{{ old('html_content', $job->html_content) }}</textarea>
-                            <!-- Quill editor container -->
-                            <div id="quill-editor" class="mt-1 bg-white" style="min-height: 300px;"></div>
-                            <!-- Source code textarea (hidden by default) -->
-                            <textarea id="html_source" class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 hidden" rows="15" style="font-family: monospace; font-size: 14px;"></textarea>
-                            <p class="mt-2 text-sm text-gray-600">Use the editor above to format your email content</p>
+                            <textarea id="html_content" name="html_content" class="mt-1 w-full" required>{{ old('html_content', $job->html_content) }}</textarea>
+                            <p class="mt-2 text-sm text-gray-600">Use the editor above to format your email content. Images and PDFs can be uploaded directly.</p>
                             <p class="mt-1 text-xs text-red-600 hidden" id="html_content_error">Please enter email content.</p>
                         </div>
 
@@ -75,81 +70,149 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            var quillEditor = document.getElementById('quill-editor');
-            var sourceTextarea = document.getElementById('html_source');
-            var isSourceMode = false;
-
-            // Initialize Quill editor with full toolbar
-            var quill = new Quill('#quill-editor', {
-                theme: 'snow',
-                modules: {
-                    toolbar: {
-                        container: [
-                            [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-                            [{ 'font': [] }],
-                            [{ 'size': ['small', false, 'large', 'huge'] }],
-                            ['bold', 'italic', 'underline', 'strike'],
-                            [{ 'color': [] }, { 'background': [] }],
-                            [{ 'script': 'sub'}, { 'script': 'super' }],
-                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                            [{ 'indent': '-1'}, { 'indent': '+1' }],
-                            [{ 'direction': 'rtl' }],
-                            [{ 'align': [] }],
-                            ['blockquote', 'code-block'],
-                            ['link', 'image', 'video'],
-                            ['clean']
-                        ]
+            var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            
+            // Initialize TinyMCE with email-compatible configuration
+            tinymce.init({
+                selector: '#html_content',
+                height: 500,
+                menubar: true,
+                plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                    'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
+                ],
+                toolbar: 'undo redo | formatselect | ' +
+                    'bold italic underline strikethrough | forecolor backcolor | ' +
+                    'alignleft aligncenter alignright alignjustify | ' +
+                    'bullist numlist outdent indent | removeformat | ' +
+                    'link image | code fullscreen',
+                content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; }',
+                // Email-compatible settings
+                inline_styles: true,
+                convert_urls: false,
+                relative_urls: false,
+                remove_script_host: false,
+                // Image upload
+                images_upload_handler: function (blobInfo, progress) {
+                    return new Promise(function (resolve, reject) {
+                        var xhr = new XMLHttpRequest();
+                        xhr.withCredentials = false;
+                        xhr.open('POST', '{{ route("upload.image") }}');
+                        
+                        xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+                        
+                        xhr.upload.onprogress = function (e) {
+                            progress(e.loaded / e.total * 100);
+                        };
+                        
+                        xhr.onload = function () {
+                            if (xhr.status === 403) {
+                                reject({ message: 'HTTP Error: ' + xhr.status, remove: true });
+                                return;
+                            }
+                            
+                            if (xhr.status < 200 || xhr.status >= 300) {
+                                reject('HTTP Error: ' + xhr.status);
+                                return;
+                            }
+                            
+                            var json = JSON.parse(xhr.responseText);
+                            
+                            if (!json || typeof json.location != 'string') {
+                                reject('Invalid JSON: ' + xhr.responseText);
+                                return;
+                            }
+                            
+                            resolve(json.location);
+                        };
+                        
+                        xhr.onerror = function () {
+                            reject('Image upload failed');
+                        };
+                        
+                        var formData = new FormData();
+                        formData.append('file', blobInfo.blob(), blobInfo.filename());
+                        
+                        xhr.send(formData);
+                    });
+                },
+                // File browser for PDFs
+                file_picker_types: 'file',
+                file_picker_callback: function(callback, value, meta) {
+                    if (meta.filetype === 'file') {
+                        var input = document.createElement('input');
+                        input.setAttribute('type', 'file');
+                        input.setAttribute('accept', 'application/pdf');
+                        
+                        input.onchange = function () {
+                            var file = this.files[0];
+                            var formData = new FormData();
+                            formData.append('file', file);
+                            
+                            var xhr = new XMLHttpRequest();
+                            xhr.open('POST', '{{ route("upload.pdf") }}');
+                            xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+                            
+                            xhr.onload = function () {
+                                if (xhr.status === 200) {
+                                    var json = JSON.parse(xhr.responseText);
+                                    callback(json.location, { text: file.name });
+                                } else {
+                                    alert('PDF upload failed');
+                                }
+                            };
+                            
+                            xhr.send(formData);
+                        };
+                        
+                        input.click();
                     }
+                },
+                setup: function(editor) {
+                    // Add custom button for PDF upload
+                    editor.ui.registry.addButton('pdfupload', {
+                        text: 'PDF',
+                        tooltip: 'Upload PDF',
+                        onAction: function() {
+                            var input = document.createElement('input');
+                            input.setAttribute('type', 'file');
+                            input.setAttribute('accept', 'application/pdf');
+                            
+                            input.onchange = function () {
+                                var file = this.files[0];
+                                var formData = new FormData();
+                                formData.append('file', file);
+                                
+                                var xhr = new XMLHttpRequest();
+                                xhr.open('POST', '{{ route("upload.pdf") }}');
+                                xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+                                
+                                xhr.onload = function () {
+                                    if (xhr.status === 200) {
+                                        var json = JSON.parse(xhr.responseText);
+                                        editor.insertContent('<a href="' + json.location + '" target="_blank">' + file.name + '</a>');
+                                    } else {
+                                        alert('PDF upload failed');
+                                    }
+                                };
+                                
+                                xhr.send(formData);
+                            };
+                            
+                            input.click();
+                        }
+                    });
                 }
             });
 
-            // Add custom source button to toolbar
-            var toolbar = quill.getModule('toolbar');
-            var toolbarElement = document.querySelector('.ql-toolbar');
-            if (toolbarElement) {
-                var sourceButton = document.createElement('button');
-                sourceButton.type = 'button';
-                sourceButton.className = 'ql-source';
-                sourceButton.innerHTML = '<svg viewBox="0 0 18 18"><path d="M13 1L1 13l4 4 12-12-4-4zm-1 5l-1-1-4 4-1-1 4-4-1-1-5 5v1l5 5h1l5-5V5l-5-5z"/></svg>';
-                sourceButton.setAttribute('title', 'Source Code');
-                sourceButton.addEventListener('click', function() {
-                    toggleSourceMode();
-                });
-                toolbarElement.appendChild(sourceButton);
-            }
-
-            // Set initial content if exists
-            var initialContent = document.getElementById('html_content').value;
-            if (initialContent) {
-                quill.root.innerHTML = initialContent;
-                sourceTextarea.value = initialContent;
-            }
-
-            function toggleSourceMode() {
-                isSourceMode = !isSourceMode;
-                if (isSourceMode) {
-                    // Switch to source mode
-                    sourceTextarea.value = quill.root.innerHTML;
-                    quillEditor.style.display = 'none';
-                    sourceTextarea.classList.remove('hidden');
-                } else {
-                    // Switch to visual mode
-                    quill.root.innerHTML = sourceTextarea.value;
-                    sourceTextarea.classList.add('hidden');
-                    quillEditor.style.display = 'block';
-                }
-            }
-
-            // Update hidden textarea before form submission
+            // Form validation
             var form = document.querySelector('form');
             var errorMessage = document.getElementById('html_content_error');
             
             form.addEventListener('submit', function(e) {
-                var htmlContent = isSourceMode ? sourceTextarea.value : quill.root.innerHTML;
-                
-                // Remove empty paragraph tags that Quill adds
-                htmlContent = htmlContent.replace(/<p><br><\/p>/g, '').trim();
-                htmlContent = htmlContent.replace(/<p><\/p>/g, '').trim();
+                // Get content from TinyMCE
+                var htmlContent = tinymce.get('html_content').getContent();
                 
                 // Check if content has actual text (not just HTML tags)
                 var textContent = htmlContent.replace(/<[^>]*>/g, '').trim();
@@ -168,24 +231,6 @@
                 
                 if (errorMessage) {
                     errorMessage.classList.add('hidden');
-                }
-                document.getElementById('html_content').value = htmlContent;
-            });
-            
-            // Also update on content change to keep in sync
-            quill.on('text-change', function() {
-                if (!isSourceMode) {
-                    var content = quill.root.innerHTML;
-                    // Remove empty paragraph tags
-                    content = content.replace(/<p><br><\/p>/g, '').trim();
-                    document.getElementById('html_content').value = content || '<p><br></p>';
-                }
-            });
-            
-            // Update when source textarea changes
-            sourceTextarea.addEventListener('input', function() {
-                if (isSourceMode) {
-                    document.getElementById('html_content').value = sourceTextarea.value;
                 }
             });
         });
