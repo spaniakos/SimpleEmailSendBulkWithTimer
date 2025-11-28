@@ -17,9 +17,9 @@ class ProcessEmailJob implements ShouldQueue
 {
     use Queueable, InteractsWithQueue, SerializesModels;
 
-    public $tries = null; // Unlimited tries - we use release() for normal processing, not error retries
+    public $tries = 3; // For real failures only - continuation uses dispatch()
     public $backoff = 10;
-    public $maxExceptions = null; // Unlimited exceptions - we handle them gracefully
+    public $maxExceptions = 3;
 
     /**
      * Create a new job instance.
@@ -36,12 +36,18 @@ class ProcessEmailJob implements ShouldQueue
      */
     public function handle(): void
     {
+        // Get rate limit configuration early (used for delays)
+        $rateLimitSeconds = config('email.rate_limit.seconds', 10);
+        
         // Check for duplicate processing using cache lock
         $lockKey = "email_job_processing_{$this->emailJob->id}";
         if (Cache::has($lockKey)) {
-            // Another instance is already processing, release this one with a short delay
-            Log::info("Email job {$this->emailJob->id} is already being processed by another instance. Releasing this job.");
-            $this->release(5); // Wait 5 seconds before retrying
+            // Another instance is already processing, dispatch new job with delay based on rate limit
+            $offset = mt_rand(0, 1000) / 1000; // Random offset 0-1 second
+            $delay = $rateLimitSeconds + $offset;
+            Log::info("Email job {$this->emailJob->id} is already being processed by another instance. Dispatching new job with {$delay}s delay (rate limit: {$rateLimitSeconds}s + offset: {$offset}s).");
+            ProcessEmailJob::dispatch($this->emailJob, $this->smtpConfig)
+                ->delay(now()->addSeconds($delay));
             return;
         }
         
@@ -72,8 +78,7 @@ class ProcessEmailJob implements ShouldQueue
                 $this->emailJob->update(['status' => 'processing']);
             }
 
-            // Get rate limit configuration
-            $rateLimitSeconds = config('email.rate_limit.seconds', 10);
+            // Get batch size configuration
             $batchSize = config('email.rate_limit.emails_per_domain', 1);
             $senderDomain = explode('@', $this->smtpConfig->from_email)[1] ?? 'unknown';
             $cacheKey = "email_domain_last_sent_{$senderDomain}";
@@ -101,13 +106,16 @@ class ProcessEmailJob implements ShouldQueue
                 $lastSent = Cache::get($cacheKey);
                 
                 if ($lastSent && ($now - $lastSent) < $rateLimitSeconds) {
-                    // Rate limit not met, release this job back to queue with delay
-                    $delay = $rateLimitSeconds - ($now - $lastSent);
-                    Log::info("Rate limit reached for domain {$senderDomain}. Releasing job back to queue with {$delay}s delay.");
+                    // Rate limit not met, dispatch new job with delay + offset
+                    $baseDelay = $rateLimitSeconds - ($now - $lastSent);
+                    $offset = mt_rand(0, 1000) / 1000; // Random offset 0-1 second
+                    $delay = $baseDelay + $offset;
+                    Log::info("Rate limit reached for domain {$senderDomain}. Dispatching new job with {$delay}s delay (base: {$baseDelay}s + offset: {$offset}s).");
                     
-                    // Release this job instance back to queue with delay (instead of dispatching new one)
-                    Cache::forget($lockKey); // Clear lock before releasing
-                    $this->release($delay);
+                    // Dispatch new job instead of releasing (prevents attempt count issues)
+                    Cache::forget($lockKey); // Clear lock before dispatching
+                    ProcessEmailJob::dispatch($this->emailJob, $this->smtpConfig)
+                        ->delay(now()->addSeconds($delay));
                     return;
                 }
 
@@ -147,16 +155,29 @@ class ProcessEmailJob implements ShouldQueue
             // Update job status
             $this->updateJobStatus();
 
-            // If there are more pending recipients, release this job back to queue
+            // If there are more pending recipients, dispatch new job
             $remainingCount = EmailRecipient::where('email_job_id', $this->emailJob->id)
                 ->where('status', 'pending')
                 ->count();
 
             if ($remainingCount > 0 && $this->emailJob->status !== 'paused') {
-                Log::info("Email job {$this->emailJob->id} has {$remainingCount} remaining recipients. Releasing job back to queue.");
-                Cache::forget($lockKey); // Clear lock before releasing
-                $this->release(0); // Release immediately (no delay needed, rate limit already respected)
-                return; // Exit after releasing
+                // Calculate delay for next email based on rate limit
+                $lastSent = Cache::get($cacheKey);
+                $baseDelay = 0;
+                if ($lastSent) {
+                    $timeSinceLastSent = now()->timestamp - $lastSent;
+                    if ($timeSinceLastSent < $rateLimitSeconds) {
+                        $baseDelay = $rateLimitSeconds - $timeSinceLastSent;
+                    }
+                }
+                $offset = mt_rand(0, 1000) / 1000; // Random offset 0-1 second
+                $delay = $baseDelay + $offset;
+                
+                Log::info("Email job {$this->emailJob->id} has {$remainingCount} remaining recipients. Dispatching new job with {$delay}s delay (base: {$baseDelay}s + offset: {$offset}s).");
+                Cache::forget($lockKey); // Clear lock before dispatching
+                ProcessEmailJob::dispatch($this->emailJob, $this->smtpConfig)
+                    ->delay(now()->addSeconds($delay));
+                return; // Exit after dispatching
             } else {
                 Log::info("Email job {$this->emailJob->id} processing complete. Processed {$processedCount} recipients in this batch.");
                 Cache::forget($lockKey); // Clear lock when done
@@ -167,12 +188,16 @@ class ProcessEmailJob implements ShouldQueue
             Log::error("ProcessEmailJob exception for job {$this->emailJob->id}: " . $e->getMessage());
             Log::error("Stack trace: " . $e->getTraceAsString());
             
-            // Release job back to queue instead of failing
+            // Dispatch new job instead of failing
             // This allows processing to continue for remaining recipients
             Cache::forget($lockKey);
             
-            // Release with a short delay to avoid immediate retry of problematic code
-            $this->release(10); // Wait 10 seconds before retrying
+            // Dispatch with delay based on rate limit + offset to avoid immediate retry of problematic code
+            $offset = mt_rand(0, 1000) / 1000; // Random offset 0-1 second
+            $delay = $rateLimitSeconds + $offset;
+            Log::info("Dispatching new job after exception with {$delay}s delay (rate limit: {$rateLimitSeconds}s + offset: {$offset}s).");
+            ProcessEmailJob::dispatch($this->emailJob, $this->smtpConfig)
+                ->delay(now()->addSeconds($delay));
             return;
             
         } finally {
