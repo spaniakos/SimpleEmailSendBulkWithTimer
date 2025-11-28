@@ -5,7 +5,7 @@
                 {{ __('Job Details') }}: {{ $emailJob->name ?? 'Untitled Job' }}
             </h2>
             <div class="flex gap-2">
-                <a href="{{ route('jobs.edit', $emailJob) }}" class="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                <a href="{{ route('jobs.edit', $emailJob) }}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
                     Edit
                 </a>
                 @if($emailJob->status === 'paused')
@@ -16,7 +16,7 @@
                 @elseif(in_array($emailJob->status, ['pending', 'processing']))
                     <form action="{{ route('jobs.pause', $emailJob) }}" method="POST" class="inline">
                         @csrf
-                        <button type="submit" class="inline-flex items-center px-4 py-2 bg-yellow-500 hover:bg-yellow-600 border border-transparent rounded-md font-semibold text-xs text-gray-900 uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                        <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-4 rounded">
                             Pause
                         </button>
                     </form>
