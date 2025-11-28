@@ -172,10 +172,14 @@
 
     @if(in_array($emailJob->status, ['pending', 'processing']))
         <script>
-            // Auto-refresh every 5 seconds for active jobs
+            // Auto-refresh at rate limit + 1 second for active jobs
+            @php
+                $rateLimitSeconds = config('email.rate_limit.seconds', 10);
+                $refreshInterval = ($rateLimitSeconds + 1) * 1000; // Convert to milliseconds
+            @endphp
             setTimeout(function() {
                 location.reload();
-            }, 5000);
+            }, {{ $refreshInterval }});
         </script>
     @endif
 </x-app-layout>

@@ -91,7 +91,7 @@ class EmailJobController extends Controller
         $this->authorize('view', $job);
         
         $job->load(['recipients' => function ($query) {
-            $query->latest();
+            $query->orderBy('id', 'asc');
         }, 'smtpConfiguration']);
 
         $emailJob = $job;
