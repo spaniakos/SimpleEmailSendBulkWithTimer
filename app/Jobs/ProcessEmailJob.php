@@ -17,9 +17,9 @@ class ProcessEmailJob implements ShouldQueue
 {
     use Queueable, InteractsWithQueue, SerializesModels;
 
-    public $tries = 3;
+    public $tries = null; // Unlimited tries - we use release() for normal processing, not error retries
     public $backoff = 10;
-    public $maxExceptions = 3;
+    public $maxExceptions = null; // Unlimited exceptions - we handle them gracefully
 
     /**
      * Create a new job instance.
@@ -67,100 +67,114 @@ class ProcessEmailJob implements ShouldQueue
                 return;
             }
 
-        // Update job status to processing if it's pending
-        if ($this->emailJob->status === 'pending') {
-            $this->emailJob->update(['status' => 'processing']);
-        }
+            // Update job status to processing if it's pending
+            if ($this->emailJob->status === 'pending') {
+                $this->emailJob->update(['status' => 'processing']);
+            }
 
-        // Get rate limit configuration
-        $rateLimitSeconds = config('email.rate_limit.seconds', 10);
-        $batchSize = config('email.rate_limit.emails_per_domain', 1);
-        $senderDomain = explode('@', $this->smtpConfig->from_email)[1] ?? 'unknown';
-        $cacheKey = "email_domain_last_sent_{$senderDomain}";
+            // Get rate limit configuration
+            $rateLimitSeconds = config('email.rate_limit.seconds', 10);
+            $batchSize = config('email.rate_limit.emails_per_domain', 1);
+            $senderDomain = explode('@', $this->smtpConfig->from_email)[1] ?? 'unknown';
+            $cacheKey = "email_domain_last_sent_{$senderDomain}";
 
-        // Get pending recipients for this job (batch size from config)
-        $pendingRecipients = EmailRecipient::where('email_job_id', $this->emailJob->id)
-            ->where('status', 'pending')
-            ->orderBy('id')
-            ->limit($batchSize)
-            ->get();
+            // Get pending recipients for this job (batch size from config)
+            $pendingRecipients = EmailRecipient::where('email_job_id', $this->emailJob->id)
+                ->where('status', 'pending')
+                ->orderBy('id')
+                ->limit($batchSize)
+                ->get();
 
-        if ($pendingRecipients->isEmpty()) {
-            // No more pending recipients, check if job is complete
-            $this->updateJobStatus();
-            Log::info("Email job {$this->emailJob->id} has no more pending recipients.");
-            Cache::forget($lockKey);
-            return;
-        }
-
-        $processedCount = 0;
-        $now = now()->timestamp;
-
-        foreach ($pendingRecipients as $recipient) {
-            // Check rate limit
-            $lastSent = Cache::get($cacheKey);
-            
-            if ($lastSent && ($now - $lastSent) < $rateLimitSeconds) {
-                // Rate limit not met, release this job back to queue with delay
-                $delay = $rateLimitSeconds - ($now - $lastSent);
-                Log::info("Rate limit reached for domain {$senderDomain}. Releasing job back to queue with {$delay}s delay.");
-                
-                // Release this job instance back to queue with delay (instead of dispatching new one)
-                Cache::forget($lockKey); // Clear lock before releasing
-                $this->release($delay);
+            if ($pendingRecipients->isEmpty()) {
+                // No more pending recipients, check if job is complete
+                $this->updateJobStatus();
+                Log::info("Email job {$this->emailJob->id} has no more pending recipients.");
+                Cache::forget($lockKey);
                 return;
             }
 
-            try {
-                // Send email
-                $this->sendEmail($recipient);
+            $processedCount = 0;
+            $now = now()->timestamp;
 
-                // Update recipient status
-                $recipient->update([
-                    'status' => 'sent',
-                    'sent_at' => now(),
-                ]);
-
-                // Update job counters
-                $this->emailJob->increment('sent_count');
-
-                // Set rate limit cache
-                Cache::put($cacheKey, $now, $rateLimitSeconds);
-
-                $processedCount++;
-                $now = now()->timestamp; // Update timestamp for next iteration
-
-            } catch (Exception $e) {
-                Log::error("Failed to send email to {$recipient->email_address}: " . $e->getMessage());
+            foreach ($pendingRecipients as $recipient) {
+                // Check rate limit
+                $lastSent = Cache::get($cacheKey);
                 
-                // Mark recipient as failed
-                $recipient->update([
-                    'status' => 'failed',
-                    'error_message' => $e->getMessage(),
-                ]);
+                if ($lastSent && ($now - $lastSent) < $rateLimitSeconds) {
+                    // Rate limit not met, release this job back to queue with delay
+                    $delay = $rateLimitSeconds - ($now - $lastSent);
+                    Log::info("Rate limit reached for domain {$senderDomain}. Releasing job back to queue with {$delay}s delay.");
+                    
+                    // Release this job instance back to queue with delay (instead of dispatching new one)
+                    Cache::forget($lockKey); // Clear lock before releasing
+                    $this->release($delay);
+                    return;
+                }
 
-                // Update job counters
-                $this->emailJob->increment('failed_count');
+                try {
+                    // Send email
+                    $this->sendEmail($recipient);
+
+                    // Update recipient status
+                    $recipient->update([
+                        'status' => 'sent',
+                        'sent_at' => now(),
+                    ]);
+
+                    // Update job counters
+                    $this->emailJob->increment('sent_count');
+
+                    // Set rate limit cache
+                    Cache::put($cacheKey, $now, $rateLimitSeconds);
+
+                    $processedCount++;
+                    $now = now()->timestamp; // Update timestamp for next iteration
+
+                } catch (Exception $e) {
+                    Log::error("Failed to send email to {$recipient->email_address}: " . $e->getMessage());
+                    
+                    // Mark recipient as failed
+                    $recipient->update([
+                        'status' => 'failed',
+                        'error_message' => $e->getMessage(),
+                    ]);
+
+                    // Update job counters
+                    $this->emailJob->increment('failed_count');
+                }
             }
-        }
 
-        // Update job status
-        $this->updateJobStatus();
+            // Update job status
+            $this->updateJobStatus();
 
-        // If there are more pending recipients, release this job back to queue
-        $remainingCount = EmailRecipient::where('email_job_id', $this->emailJob->id)
-            ->where('status', 'pending')
-            ->count();
+            // If there are more pending recipients, release this job back to queue
+            $remainingCount = EmailRecipient::where('email_job_id', $this->emailJob->id)
+                ->where('status', 'pending')
+                ->count();
 
-        if ($remainingCount > 0 && $this->emailJob->status !== 'paused') {
-            Log::info("Email job {$this->emailJob->id} has {$remainingCount} remaining recipients. Releasing job back to queue.");
-            Cache::forget($lockKey); // Clear lock before releasing
-            $this->release(0); // Release immediately (no delay needed, rate limit already respected)
-            return; // Exit after releasing
-        } else {
-            Log::info("Email job {$this->emailJob->id} processing complete. Processed {$processedCount} recipients in this batch.");
-            Cache::forget($lockKey); // Clear lock when done
-        }
+            if ($remainingCount > 0 && $this->emailJob->status !== 'paused') {
+                Log::info("Email job {$this->emailJob->id} has {$remainingCount} remaining recipients. Releasing job back to queue.");
+                Cache::forget($lockKey); // Clear lock before releasing
+                $this->release(0); // Release immediately (no delay needed, rate limit already respected)
+                return; // Exit after releasing
+            } else {
+                Log::info("Email job {$this->emailJob->id} processing complete. Processed {$processedCount} recipients in this batch.");
+                Cache::forget($lockKey); // Clear lock when done
+            }
+            
+        } catch (Exception $e) {
+            // Log the exception for debugging
+            Log::error("ProcessEmailJob exception for job {$this->emailJob->id}: " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
+            
+            // Release job back to queue instead of failing
+            // This allows processing to continue for remaining recipients
+            Cache::forget($lockKey);
+            
+            // Release with a short delay to avoid immediate retry of problematic code
+            $this->release(10); // Wait 10 seconds before retrying
+            return;
+            
         } finally {
             // Ensure lock is always cleared, even if an exception occurs
             Cache::forget($lockKey);
