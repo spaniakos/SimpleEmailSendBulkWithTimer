@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ci:
+    name: Continuous Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_sqlite
+          coverage: none
+      
+      - name: Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+      
+      - name: Install Node Dependencies
+        run: npm ci
+      
+      - name: Build Assets
+        run: npm run build
+      
+      - name: Setup Environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan migrate --force
+      
+      - name: Run All Tests
+        run: php artisan test
+

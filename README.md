@@ -1,4 +1,6 @@
 [![Tests](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions/workflows/tests.yml/badge.svg)](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions)
+[![CI](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions/workflows/ci.yml/badge.svg)](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions)
+[![Lint](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions/workflows/lint.yml/badge.svg)](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions)
 ![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?logo=laravel&logoColor=white)
 ![PHP Version](https://img.shields.io/badge/PHP-8.2-blue)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)

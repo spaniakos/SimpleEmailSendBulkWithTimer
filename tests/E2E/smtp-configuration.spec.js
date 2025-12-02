@@ -19,10 +19,18 @@ test.describe('SMTP Configuration', () => {
   test('user can navigate to create SMTP configuration', async ({ page }) => {
     await page.goto('/smtp');
     
-    const createLink = page.getByRole('link', { name: /create|add|new/i });
+    // Use more specific selector - prefer the button over the empty state link
+    const createLink = page.getByRole('link', { name: /add smtp configuration/i }).first();
     if (await createLink.count() > 0) {
       await createLink.click();
       await expect(page).toHaveURL(/\/smtp\/create/);
+    } else {
+      // Fallback: if no button, try the empty state link
+      const emptyStateLink = page.getByRole('link', { name: /create your first configuration/i });
+      if (await emptyStateLink.count() > 0) {
+        await emptyStateLink.click();
+        await expect(page).toHaveURL(/\/smtp\/create/);
+      }
     }
   });
 });
