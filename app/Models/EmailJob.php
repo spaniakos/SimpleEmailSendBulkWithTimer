@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class EmailJob extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'user_id',
         'smtp_configuration_id',
@@ -48,6 +49,7 @@ class EmailJob extends Model
         if ($this->total_recipients === 0) {
             return 0;
         }
+
         return round(($this->sent_count / $this->total_recipients) * 100, 2);
     }
 }

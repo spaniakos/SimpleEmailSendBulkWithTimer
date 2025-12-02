@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class EmailRecipient extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'email_job_id',
         'email_address',

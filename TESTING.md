@@ -1,92 +1,188 @@
-# Testing Documentation
+# Testing Guide
 
-## Running Tests
+This project includes comprehensive test coverage with multiple test types. All tests are automatically run via GitHub Actions on every push and pull request.
 
+## Test Types
+
+### 1. **Smoke Tests** (`tests/Smoke/`)
+Quick sanity checks to ensure the application boots and basic functionality works:
+- Application boots successfully
+- Database connection works
+- Authentication routes are accessible
+- Protected routes require authentication
+- Queue system is configured
+- Email configuration exists
+
+**Run smoke tests:**
 ```bash
-# Run all tests
-php artisan test
-
-# Run specific test suite
-php artisan test --filter SmtpConfigurationTest
-php artisan test --filter EmailJobTest
-php artisan test --filter SendEmailJobTest
-
-# Run with verbose output
-php artisan test -v
-
-# Run specific test method
-php artisan test --filter test_user_can_create_smtp_configuration
+php artisan test --testsuite=Smoke
 ```
 
-## Test Coverage
+### 2. **Unit Tests** (`tests/Unit/`)
+Test individual components in isolation:
+- Model methods
+- Helper functions
+- Utility classes
 
-### SmtpConfigurationTest (9 tests)
-- User can view SMTP configurations index
-- User can create SMTP configuration
-- User can view their own SMTP configuration
-- User cannot view other users' SMTP configuration
-- User can update their own SMTP configuration
-- User cannot update other users' SMTP configuration
-- User can delete their own SMTP configuration
-- User cannot delete other users' SMTP configuration
-- SMTP configuration password is encrypted
+**Run unit tests:**
+```bash
+php artisan test --testsuite=Unit
+```
 
-### EmailJobTest (11 tests)
-- User can view email jobs index
-- User can create email job with CSV text
-- User can create email job with CSV file
-- User can view their own email job
-- User cannot view other users' email job
-- User can update their own email job
-- User can delete their own email job
-- User can pause email job
-- User can resume paused email job
-- CSV parsing extracts unique emails
-- Email job extracts domains correctly
+### 3. **Functional Tests** (`tests/Feature/`)
+Test complete features and workflows:
+- Email job creation and management
+- SMTP configuration CRUD
+- Authentication flows
+- Authorization (users can only access their own data)
+- CSV parsing and recipient creation
 
-### SendEmailJobTest (4 tests)
-- Send email job can be dispatched
-- Rate limiting prevents multiple emails per domain
-- Email job updates recipient status on success
-- Email job updates counters on success
+**Run functional tests:**
+```bash
+php artisan test --testsuite=Feature
+```
 
-**Note**: `SendEmailJob` is deprecated. New email jobs use `ProcessEmailJob` which processes recipients in batches. Tests for `SendEmailJob` are kept for backward compatibility.
+### 4. **E2E Tests** (`tests/E2E/`)
+End-to-end browser tests using Playwright:
+- User registration and login
+- Email job creation workflow
+- SMTP configuration management
+- Full user journeys
 
-## Test Environment
+**Run E2E tests:**
+```bash
+# Install Playwright browsers first (one-time setup)
+npx playwright install --with-deps
 
-Tests use:
-- **RefreshDatabase** trait - Each test runs in a transaction that is rolled back
-- **Factories** - Generate test data for models
-- **Mail::fake()** - Fakes email sending for testing
-- **Queue::fake()** - Fakes queue jobs for testing
-- **Cache::flush()** - Clears cache between tests
+# Run tests
+npm run test:e2e
 
-## Writing New Tests
+# Run with UI mode (interactive)
+npm run test:e2e:ui
+```
 
-When adding new features, create corresponding tests:
+### 5. **Code Style (Pint)**
+Laravel Pint ensures code follows PSR-12 style guide:
 
-1. Create test file: `php artisan make:test FeatureNameTest`
-2. Use factories to create test data
-3. Test both success and failure cases
-4. Test authorization (users can only access their own data)
-5. Test validation rules
-6. Use appropriate assertions
+**Check code style:**
+```bash
+./vendor/bin/pint --test
+```
 
-## Example Test Structure
+**Fix code style:**
+```bash
+./vendor/bin/pint
+```
+
+## Running All Tests
+
+```bash
+# Run all PHP tests (smoke, unit, functional)
+php artisan test
+
+# Run all tests including E2E
+php artisan test && npm run test:e2e
+```
+
+## GitHub Actions CI/CD
+
+All tests run automatically on push and pull requests via GitHub Actions:
+
+1. **Pint** - Code style check
+2. **Unit Tests** - Fast unit tests
+3. **Functional Tests** - Feature tests with database
+4. **Smoke Tests** - Basic sanity checks
+5. **E2E Tests** - Full browser tests with Playwright
+
+View test results in the "Actions" tab of your GitHub repository.
+
+## Test Configuration
+
+### PHPUnit Configuration
+- Location: `phpunit.xml`
+- Test suites: Unit, Feature, Smoke
+- Uses SQLite in-memory database for tests
+- Environment: `APP_ENV=testing`
+
+### Playwright Configuration
+- Location: `playwright.config.js`
+- Browser: Chromium (Desktop Chrome)
+- Base URL: `http://localhost:8000`
+- Auto-starts Laravel server for tests
+
+## Test Data
+
+### Factories
+- `UserFactory` - Creates test users
+- `SmtpConfigurationFactory` - Creates SMTP configs
+- `EmailJobFactory` - Creates email jobs
+- `EmailRecipientFactory` - Creates recipients
+
+### Seeders
+- `DatabaseSeeder` - Creates test user (`test@example.com` / `password`) for E2E tests
+
+## Writing Tests
+
+### PHPUnit Test Example
 
 ```php
-public function test_feature_works_correctly(): void
+<?php
+
+namespace Tests\Feature;
+
+use Tests\TestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+class MyFeatureTest extends TestCase
 {
-    // Arrange
-    $user = User::factory()->create();
-    $resource = Resource::factory()->create(['user_id' => $user->id]);
+    use RefreshDatabase;
 
-    // Act
-    $response = $this->actingAs($user)->get("/resource/{$resource->id}");
-
-    // Assert
-    $response->assertStatus(200);
-    $response->assertViewIs('resource.show');
+    public function test_something_works(): void
+    {
+        // Arrange
+        $user = User::factory()->create();
+        
+        // Act
+        $response = $this->actingAs($user)->get('/jobs');
+        
+        // Assert
+        $response->assertStatus(200);
+    }
 }
 ```
 
+### Playwright Test Example
+
+```javascript
+import { test, expect } from '@playwright/test';
+
+test('user can do something', async ({ page }) => {
+  await page.goto('/jobs');
+  await expect(page.locator('h1')).toBeVisible();
+});
+```
+
+## Best Practices
+
+1. **Use RefreshDatabase** - Ensures clean database state for each test
+2. **Use Factories** - Create test data consistently
+3. **Test User Isolation** - Each test should use its own user/data
+4. **Keep Tests Fast** - Unit tests should be < 1 second, functional < 5 seconds
+5. **Clear Test Names** - Use descriptive test method names
+6. **One Assertion Per Test** - When possible, focus each test on one behavior
+
+## Troubleshooting
+
+### E2E Tests Failing
+- Ensure Laravel server is running: `php artisan serve`
+- Check that database is seeded: `php artisan db:seed`
+- Verify test user exists: `test@example.com` / `password`
+
+### Database Issues
+- Tests use SQLite in-memory database
+- Each test gets a fresh database (RefreshDatabase trait)
+- If tests interfere, check for shared state
+
+### Playwright Browser Issues
+- Reinstall browsers: `npx playwright install --with-deps`
+- Clear cache: `rm -rf playwright/.cache`

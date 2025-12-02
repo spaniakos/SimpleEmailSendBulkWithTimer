@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\EmailJob;
 use App\Models\EmailRecipient;
 use App\Models\SmtpConfiguration;
+use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -12,16 +13,14 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Config;
-
-use Exception;
 
 class ProcessEmailJob implements ShouldQueue
 {
-    use Queueable, InteractsWithQueue, SerializesModels;
+    use InteractsWithQueue, Queueable, SerializesModels;
 
     // Retries are ONLY for real failures (SMTP down, crash, etc)
     public $tries = 3;
+
     public $maxExceptions = 3;
 
     public function __construct(
@@ -38,6 +37,7 @@ class ProcessEmailJob implements ShouldQueue
         // 1️⃣ Prevent Parallel Execution
         if (Cache::has($lockKey)) {
             $this->scheduleNextRun($rateLimit);
+
             return;
         }
 
@@ -50,6 +50,7 @@ class ProcessEmailJob implements ShouldQueue
             // 2️⃣ Exit early for paused / completed
             if ($this->shouldStopEarly()) {
                 Cache::forget($lockKey);
+
                 return;
             }
 
@@ -63,6 +64,7 @@ class ProcessEmailJob implements ShouldQueue
             if ($pending->isEmpty()) {
                 $this->finishJobIfComplete();
                 Cache::forget($lockKey);
+
                 return;
             }
 
@@ -80,6 +82,7 @@ class ProcessEmailJob implements ShouldQueue
                     } else {
                         $this->scheduleNextRun($rateLimit);
                     }
+
                     return;
                 }
 
@@ -102,17 +105,19 @@ class ProcessEmailJob implements ShouldQueue
                 } else {
                     $this->scheduleNextRun($rateLimit);
                 }
+
                 return;
             }
 
             Cache::forget($lockKey);
+
             return;
 
         } catch (Exception $e) {
 
             Cache::forget($lockKey);
 
-            Log::error("Fatal error in job {$this->emailJob->id}: " . $e->getMessage());
+            Log::error("Fatal error in job {$this->emailJob->id}: ".$e->getMessage());
 
             // 5️⃣ Fail the job only for real failures
             $this->fail($e);
@@ -121,8 +126,12 @@ class ProcessEmailJob implements ShouldQueue
 
     private function shouldStopEarly(): bool
     {
-        if ($this->emailJob->status === 'paused') return true;
-        if (in_array($this->emailJob->status, ['completed', 'failed'])) return true;
+        if ($this->emailJob->status === 'paused') {
+            return true;
+        }
+        if (in_array($this->emailJob->status, ['completed', 'failed'])) {
+            return true;
+        }
 
         if ($this->emailJob->status === 'pending') {
             $this->emailJob->update(['status' => 'processing']);
@@ -137,7 +146,9 @@ class ProcessEmailJob implements ShouldQueue
         $cacheKey = "email_domain_last_sent_{$domain}";
 
         $last = Cache::get($cacheKey);
-        if (!$last) return true;
+        if (! $last) {
+            return true;
+        }
 
         return (now()->timestamp - $last) >= $rateLimit;
     }
@@ -162,7 +173,7 @@ class ProcessEmailJob implements ShouldQueue
             Cache::put("email_domain_last_sent_{$domain}", now()->timestamp, 3600);
 
         } catch (Exception $e) {
-            Log::error("Failed email to {$recipient->email_address}: " . $e->getMessage());
+            Log::error("Failed email to {$recipient->email_address}: ".$e->getMessage());
             $recipient->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
             $this->emailJob->increment('failed_count');
         }
@@ -171,13 +182,13 @@ class ProcessEmailJob implements ShouldQueue
     private function configureMailer(): void
     {
         config(['mail.mailers.smtp' => [
-            'transport'  => 'smtp',
-            'host'       => $this->smtpConfig->host,
-            'port'       => $this->smtpConfig->port,
+            'transport' => 'smtp',
+            'host' => $this->smtpConfig->host,
+            'port' => $this->smtpConfig->port,
             'encryption' => $this->smtpConfig->encryption,
-            'username'   => $this->smtpConfig->username,
-            'password'   => $this->smtpConfig->password,
-            'timeout'    => 20,
+            'username' => $this->smtpConfig->username,
+            'password' => $this->smtpConfig->password,
+            'timeout' => 20,
         ]]);
     }
 
@@ -190,7 +201,7 @@ class ProcessEmailJob implements ShouldQueue
             $this->emailJob->update([
                 'status' => $this->emailJob->failed_count > 0 && $this->emailJob->sent_count === 0
                     ? 'failed'
-                    : 'completed'
+                    : 'completed',
             ]);
         }
     }

@@ -17,7 +17,7 @@ class EmailRecipientFactory extends Factory
     public function definition(): array
     {
         $email = fake()->email();
-        $domain = substr(strrchr($email, "@"), 1);
+        $domain = substr(strrchr($email, '@'), 1);
 
         return [
             'email_job_id' => \App\Models\EmailJob::factory(),

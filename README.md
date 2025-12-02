@@ -1,31 +1,41 @@
+[![Tests](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions/workflows/tests.yml/badge.svg)](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions)
+![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?logo=laravel&logoColor=white)
+![PHP Version](https://img.shields.io/badge/PHP-8.2-blue)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
+![Code Style: Laravel Pint](https://img.shields.io/badge/Code_Style-Laravel_Pint-orange)
+
 # Laravel Email Bulk Sender
 
-A Laravel 12 application for sending bulk emails with rate limiting, queue management, and comprehensive reporting.
+A Laravel 12 application for sending bulk emails with rate limiting, queue management, and comprehensive reporting. Perfect for marketing campaigns, newsletters, and transactional emails.
 
-## Features
+## 🚀 Features
 
-- **User Authentication**: Simple user/password authentication using Laravel Breeze
-- **SMTP Configuration**: Manage multiple SMTP configurations per user
-- **Bulk Email Sending**: Send emails to multiple recipients from CSV files or pasted text
-- **Queue System**: Database-based queue system for background email processing
-- **Batch Processing**: Intelligent batch processing of emails (configurable batch size)
-- **Rate Limiting**: Configurable rate limiting per sender domain
-- **Real-time Reporting**: Track sent/total emails with progress indicators
+- **Bulk Email Sending**: Send emails to thousands of recipients efficiently
+- **Rate Limiting**: Configurable rate limiting per sender domain to prevent spam
+- **Queue Management**: Database-based queue system for reliable background processing
+- **Batch Processing**: Intelligent batch processing with automatic continuation
 - **Job Management**: Create, pause, resume, and delete email jobs
-- **Tailwind CSS**: Modern, responsive UI built with Tailwind CSS
+- **Real-time Progress**: Track sent/total emails with live progress indicators
+- **SMTP Management**: Manage multiple SMTP configurations per user
+- **CSV Import**: Import recipients from CSV files or paste email addresses
+- **Rich HTML Editor**: TinyMCE WYSIWYG editor for creating beautiful emails
+- **File Uploads**: Upload images and PDFs directly in the email editor
+- **User Authentication**: Secure authentication with Laravel Breeze
+- **Comprehensive Testing**: Full test coverage with unit, functional, smoke, and E2E tests
 
-## Requirements
+
+## 📋 Requirements
 
 - PHP 8.2 or higher
 - Composer
-- Node.js and NPM
-- Database (MySQL, PostgreSQL, or SQLite)
+- Node.js 18+ and NPM
+- Database (MySQL 5.7+, PostgreSQL 10+, or SQLite 3.8+)
 
-## Installation
+## 📦 Installation
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/spaniakos/SimpleEmailSendBulkWithTimer.git
 cd SimpleEmailSendBulkWithTimer
 ```
 
@@ -73,12 +83,53 @@ php artisan migrate
 ```
 
 8. Create initial user (optional):
+
+**Option A: Using Artisan Command (Recommended)**
 ```bash
 # Interactive mode (will prompt for details)
 php artisan user:create
 
 # Non-interactive mode (provide all options)
 php artisan user:create --email=admin@example.com --name="Admin User" --password=yourpassword
+```
+
+**Option B: Direct Database Insert**
+
+If you prefer to create a user directly in the database:
+
+1. Generate a password hash using PHP:
+
+**Method 1: One-liner command (Recommended)**
+```bash
+php artisan tinker --execute="echo Hash::make('your-password-here');"
+```
+
+**Method 2: Interactive tinker**
+```bash
+php artisan tinker
+```
+Then in tinker:
+```php
+Hash::make('your-password-here')
+```
+Copy the hashed password and exit tinker with `exit`.
+
+2. Insert the user directly into the database:
+```sql
+INSERT INTO users (name, email, password, email_verified_at, created_at, updated_at)
+VALUES (
+    'Admin User',
+    'admin@example.com',
+    'paste-hashed-password-here',
+    NOW(),
+    NOW(),
+    NOW()
+);
+```
+
+Or using MySQL command line:
+```bash
+mysql -u your_username -p your_database -e "INSERT INTO users (name, email, password, email_verified_at, created_at, updated_at) VALUES ('Admin User', 'admin@example.com', 'paste-hashed-password-here', NOW(), NOW(), NOW());"
 ```
 
 9. Build frontend assets:
@@ -96,13 +147,13 @@ php artisan serve
 php artisan queue:work
 ```
 
-## Usage
+## 💻 Usage
 
 ### 1. Create an Account
 
 You can create a user account in two ways:
 
-**Option A: Using the Artisan Command (Recommended for initial setup)**
+**Option A: Using the Artisan Command (Recommended)**
 ```bash
 php artisan user:create
 ```
@@ -117,8 +168,46 @@ Or provide all options at once:
 php artisan user:create --email=user@example.com --name="John Doe" --password=securepassword
 ```
 
-**Option B: Using the Web Interface**
-Register a new account through the web interface or login with existing credentials.
+**Option B: Direct Database Insert**
+
+If you prefer to create a user directly in the database:
+
+1. Generate a password hash using PHP:
+
+**Method 1: One-liner command (Recommended)**
+```bash
+php artisan tinker --execute="echo Hash::make('your-password-here');"
+```
+
+**Method 2: Interactive tinker**
+```bash
+php artisan tinker
+```
+Then in tinker:
+```php
+Hash::make('your-password-here')
+```
+Copy the hashed password and exit tinker with `exit`.
+
+2. Insert the user directly into the database:
+```sql
+INSERT INTO users (name, email, password, email_verified_at, created_at, updated_at)
+VALUES (
+    'Admin User',
+    'admin@example.com',
+    'paste-hashed-password-here',
+    NOW(),
+    NOW(),
+    NOW()
+);
+```
+
+Or using MySQL command line:
+```bash
+mysql -u your_username -p your_database -e "INSERT INTO users (name, email, password, email_verified_at, created_at, updated_at) VALUES ('Admin User', 'admin@example.com', 'paste-hashed-password-here', NOW(), NOW(), NOW());"
+```
+
+**Note**: Registration is not available through the web interface. Use one of the methods above to create users.
 
 ### 2. Configure SMTP
 
@@ -154,7 +243,7 @@ Register a new account through the web interface or login with existing credenti
 - **Resume**: Continue sending from where it left off
 - **Delete**: Remove a job and all its data
 
-## CSV Format
+## 📄 CSV Format
 
 The CSV file can contain email addresses in the following formats:
 
@@ -177,7 +266,7 @@ John Doe,john@example.com,Company A
 Jane Smith,jane@example.com,Company B
 ```
 
-## Architecture
+## 🏗️ Architecture
 
 The application uses a **batch processing architecture** for efficient email sending:
 
@@ -194,7 +283,7 @@ The application uses a **batch processing architecture** for efficient email sen
 - **Pause/Resume Support**: Can pause and resume entire campaigns
 - **Error Resilience**: Failed emails don't block the entire batch
 
-## Rate Limiting
+## ⏱️ Rate Limiting
 
 The system enforces a configurable rate limit per **sender domain** (not recipient domain) to prevent sending too many emails too quickly. By default, it's set to **1 email per 10 seconds per sender domain**.
 
@@ -215,7 +304,7 @@ EMAIL_RATE_LIMIT_SECONDS=10  # Time window in seconds between emails from the sa
 - **Domain-Based**: Rate limiting is based on the sender's domain (from SMTP configuration), not recipient domains
 - **Example**: With `MAIL_RATE_LIMIT_COUNT=1` and `EMAIL_RATE_LIMIT_SECONDS=10`, the system will send 1 email, wait 10 seconds, then send the next email from the same sender domain
 
-## Queue Worker
+## 🔄 Queue Worker
 
 **Important**: The queue worker must be running for emails to be sent. Start it with:
 
@@ -225,21 +314,21 @@ php artisan queue:work
 
 For production, use a process manager like Supervisor to keep the queue worker running.
 
-## Database Configuration
+## 🗄️ Database Configuration
 
 All queues, sessions, and cache are stored in the database:
 - `QUEUE_CONNECTION=database` - Queue jobs stored in `jobs` table
 - `SESSION_DRIVER=database` - Sessions stored in `sessions` table
 - `CACHE_DRIVER=database` - Cache stored in `cache` table
 
-## Security
+## 🔒 Security
 
 - SMTP passwords are encrypted using Laravel's Crypt facade
 - User authentication required for all routes
 - Policies ensure users can only access their own data
 - CSRF protection on all forms
 
-## Testing
+## 🧪 Testing
 
 The application includes comprehensive test coverage:
 
@@ -267,7 +356,7 @@ php artisan test --coverage
 
 All tests use database transactions and factories for clean test data.
 
-## Architecture Notes
+## 📝 Architecture Notes
 
 ### Batch Processing System
 
@@ -284,7 +373,7 @@ The application uses `ProcessEmailJob` for efficient email processing:
 - New email jobs automatically use `ProcessEmailJob`
 - Old jobs using `SendEmailJob` will continue to work but new jobs will use the batch processing system
 
-## Troubleshooting
+## 🐛 Troubleshooting
 
 ### Emails not sending
 - Ensure the queue worker is running: `php artisan queue:work`
@@ -306,7 +395,7 @@ The application uses `ProcessEmailJob` for efficient email processing:
 - Verify you own the resource you're trying to access
 - Check application logs for detailed error messages
 
-## API Documentation
+## 📚 API Documentation
 
 ### SMTP Configuration Endpoints
 
@@ -331,6 +420,16 @@ The application uses `ProcessEmailJob` for efficient email processing:
 - `POST /jobs/{id}/pause` - Pause email job
 - `POST /jobs/{id}/resume` - Resume paused email job
 
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
 ## License
 
-This project is open-sourced software licensed under the MIT license.
+This project is open-sourced software licensed under the [MIT License](LICENSE).

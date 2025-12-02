@@ -18,8 +18,8 @@ class SmtpConfigurationFactory extends Factory
     {
         return [
             'user_id' => \App\Models\User::factory(),
-            'name' => fake()->words(2, true) . ' SMTP',
-            'host' => 'smtp.' . fake()->domainName(),
+            'name' => fake()->words(2, true).' SMTP',
+            'host' => 'smtp.'.fake()->domainName(),
             'port' => fake()->randomElement([587, 465, 25]),
             'username' => fake()->email(),
             'password' => fake()->password(),

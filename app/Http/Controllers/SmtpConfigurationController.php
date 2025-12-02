@@ -11,12 +11,14 @@ class SmtpConfigurationController extends Controller
     public function index()
     {
         $configurations = Auth::user()->smtpConfigurations()->latest()->get();
+
         return view('smtp.index', compact('configurations'));
     }
 
     public function show(SmtpConfiguration $smtpConfiguration)
     {
         $this->authorize('view', $smtpConfiguration);
+
         return view('smtp.show', compact('smtpConfiguration'));
     }
 
@@ -39,7 +41,7 @@ class SmtpConfigurationController extends Controller
         ]);
 
         $validated['user_id'] = Auth::id();
-        
+
         SmtpConfiguration::create($validated);
 
         return redirect()->route('smtp.index')
@@ -49,6 +51,7 @@ class SmtpConfigurationController extends Controller
     public function edit(SmtpConfiguration $smtpConfiguration)
     {
         $this->authorize('update', $smtpConfiguration);
+
         return view('smtp.edit', compact('smtpConfiguration'));
     }
 
@@ -100,11 +103,11 @@ class SmtpConfigurationController extends Controller
         ]);
 
         // If password is not provided and we have an existing config, use the stored password
-        if (empty($validated['password']) && !empty($validated['smtp_configuration_id'])) {
+        if (empty($validated['password']) && ! empty($validated['smtp_configuration_id'])) {
             $existingConfig = SmtpConfiguration::where('id', $validated['smtp_configuration_id'])
                 ->where('user_id', Auth::id())
                 ->first();
-            
+
             if ($existingConfig) {
                 $validated['password'] = $existingConfig->password; // Already decrypted by model accessor
             } else {
@@ -150,7 +153,7 @@ class SmtpConfigurationController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Connection failed: ' . $e->getMessage(),
+                'message' => 'Connection failed: '.$e->getMessage(),
             ], 400);
         }
     }

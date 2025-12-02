@@ -46,7 +46,11 @@ class SendEmailJobTest extends TestCase
         Cache::flush();
 
         $user = User::factory()->create();
-        $smtp = SmtpConfiguration::factory()->create(['user_id' => $user->id]);
+        $senderDomain = 'sender.com';
+        $smtp = SmtpConfiguration::factory()->create([
+            'user_id' => $user->id,
+            'from_email' => "sender@{$senderDomain}",
+        ]);
         $job = EmailJob::factory()->create([
             'user_id' => $user->id,
             'smtp_configuration_id' => $smtp->id,
@@ -61,9 +65,10 @@ class SendEmailJobTest extends TestCase
         $sendJob = new SendEmailJob($recipient, $job, $smtp);
         $sendJob->handle();
 
-        // Check that cache was set
-        $this->assertTrue(Cache::has('email_domain_last_sent_example.com'));
-        
+        // Check that cache was set (using sender domain, not recipient domain)
+        $cacheKey = "email_domain_last_sent_{$senderDomain}";
+        $this->assertTrue(Cache::has($cacheKey));
+
         // Verify recipient was updated to sent
         $recipient->refresh();
         $this->assertEquals('sent', $recipient->status);
@@ -79,7 +84,7 @@ class SendEmailJobTest extends TestCase
         ]);
 
         $sendJob2 = new SendEmailJob($recipient2, $job, $smtp);
-        
+
         // Should release the job due to rate limiting (this will return early)
         // Note: release() may throw an exception in tests, so we catch it
         try {
@@ -99,9 +104,10 @@ class SendEmailJobTest extends TestCase
             // If sent_at exists, it should be from factory, not from job execution
             $this->assertLessThan(now()->subSecond(), $recipient2->sent_at);
         }
-        
+
         // Verify cache still exists (rate limit is still active)
-        $this->assertTrue(Cache::has('email_domain_last_sent_example.com'));
+        $cacheKey = "email_domain_last_sent_{$senderDomain}";
+        $this->assertTrue(Cache::has($cacheKey));
     }
 
     public function test_email_job_updates_recipient_status_on_success(): void

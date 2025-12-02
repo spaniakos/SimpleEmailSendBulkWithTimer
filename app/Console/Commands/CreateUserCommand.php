@@ -34,30 +34,32 @@ class CreateUserCommand extends Command
         $email = $this->option('email');
         $name = $this->option('name');
         $password = $this->option('password');
-        $noInteraction = !$this->input->isInteractive();
+        $noInteraction = ! $this->input->isInteractive();
 
         // If running non-interactively, require all options
         if ($noInteraction) {
-            if (!$email || !$name || !$password) {
+            if (! $email || ! $name || ! $password) {
                 $this->error('Error: --email, --name, and --password are required when running non-interactively');
+
                 return Command::FAILURE;
             }
         } else {
             // Interactive mode: prompt for missing information
-            if (!$email) {
+            if (! $email) {
                 $email = $this->ask('Email address');
             }
 
-            if (!$name) {
+            if (! $name) {
                 $name = $this->ask('Name');
             }
 
-            if (!$password) {
+            if (! $password) {
                 $password = $this->secret('Password');
                 $passwordConfirmation = $this->secret('Confirm password');
-                
+
                 if ($password !== $passwordConfirmation) {
                     $this->error('Passwords do not match!');
+
                     return Command::FAILURE;
                 }
             }
@@ -77,14 +79,16 @@ class CreateUserCommand extends Command
         if ($validator->fails()) {
             $this->error('Validation failed:');
             foreach ($validator->errors()->all() as $error) {
-                $this->error('  - ' . $error);
+                $this->error('  - '.$error);
             }
+
             return Command::FAILURE;
         }
 
         // Check if user already exists
         if (User::where('email', $email)->exists()) {
             $this->error("User with email '{$email}' already exists!");
+
             return Command::FAILURE;
         }
 
@@ -97,14 +101,15 @@ class CreateUserCommand extends Command
                 'email_verified_at' => now(),
             ]);
 
-            $this->info("User created successfully!");
+            $this->info('User created successfully!');
             $this->line("  ID: {$user->id}");
             $this->line("  Name: {$user->name}");
             $this->line("  Email: {$user->email}");
-            
+
             return Command::SUCCESS;
         } catch (\Exception $e) {
-            $this->error("Failed to create user: " . $e->getMessage());
+            $this->error('Failed to create user: '.$e->getMessage());
+
             return Command::FAILURE;
         }
     }

@@ -9,19 +9,20 @@ use App\Models\SmtpConfiguration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Validator;
 
 class EmailJobController extends Controller
 {
     public function index()
     {
         $jobs = Auth::user()->emailJobs()->with('smtpConfiguration')->latest()->get();
+
         return view('jobs.index', compact('jobs'));
     }
 
     public function create()
     {
         $smtpConfigurations = Auth::user()->smtpConfigurations()->get();
+
         return view('jobs.create', compact('smtpConfigurations'));
     }
 
@@ -58,7 +59,7 @@ class EmailJobController extends Controller
         $emailJob = EmailJob::create([
             'user_id' => Auth::id(),
             'smtp_configuration_id' => $smtpConfig->id,
-            'name' => $validated['name'] ?? 'Email Job ' . now()->format('Y-m-d H:i:s'),
+            'name' => $validated['name'] ?? 'Email Job '.now()->format('Y-m-d H:i:s'),
             'subject' => $validated['subject'],
             'html_content' => $validated['html_content'],
             'status' => 'pending',
@@ -70,7 +71,7 @@ class EmailJobController extends Controller
         // Create recipients
         foreach ($emails as $email) {
             $domain = $this->extractDomain($email);
-            
+
             EmailRecipient::create([
                 'email_job_id' => $emailJob->id,
                 'email_address' => $email,
@@ -89,22 +90,23 @@ class EmailJobController extends Controller
     public function show(EmailJob $job)
     {
         $this->authorize('view', $job);
-        
+
         $job->load(['recipients' => function ($query) {
             $query->orderBy('id', 'asc');
         }, 'smtpConfiguration']);
 
         $emailJob = $job;
+
         return view('jobs.show', compact('emailJob'));
     }
 
     public function edit(EmailJob $job)
     {
         $this->authorize('update', $job);
-        
+
         $smtpConfigurations = Auth::user()->smtpConfigurations()->get();
         $job->load('smtpConfiguration');
-        
+
         return view('jobs.edit', compact('job', 'smtpConfigurations'));
     }
 
@@ -148,14 +150,14 @@ class EmailJobController extends Controller
     {
         $this->authorize('update', $emailJob);
         $emailJob->update(['status' => 'paused']);
-        
+
         return back()->with('success', 'Job paused successfully.');
     }
 
     public function resume(EmailJob $emailJob)
     {
         $this->authorize('update', $emailJob);
-        
+
         if ($emailJob->status !== 'paused') {
             return back()->withErrors(['status' => 'Job is not paused.']);
         }
@@ -170,7 +172,7 @@ class EmailJobController extends Controller
         if ($pendingCount > 0) {
             // Check if a job is already queued/processing for this email job
             $lockKey = "email_job_processing_{$emailJob->id}";
-            if (!Cache::has($lockKey)) {
+            if (! Cache::has($lockKey)) {
                 // No job is currently processing, dispatch a new one
                 ProcessEmailJob::dispatch($emailJob, $emailJob->smtpConfiguration);
             }
@@ -203,7 +205,7 @@ class EmailJobController extends Controller
 
             // Handle CSV format (comma or semicolon separated)
             $parts = str_getcsv($line);
-            
+
             foreach ($parts as $part) {
                 $part = trim($part);
                 if (filter_var($part, FILTER_VALIDATE_EMAIL)) {
@@ -219,6 +221,7 @@ class EmailJobController extends Controller
     protected function extractDomain(string $email): string
     {
         $parts = explode('@', $email);
+
         return strtolower($parts[1] ?? 'unknown');
     }
 }

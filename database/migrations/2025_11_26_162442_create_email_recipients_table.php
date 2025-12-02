@@ -20,7 +20,7 @@ return new class extends Migration
             $table->timestamp('sent_at')->nullable();
             $table->text('error_message')->nullable();
             $table->timestamps();
-            
+
             $table->index('domain');
             $table->index('status');
         });

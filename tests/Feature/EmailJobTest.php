@@ -44,14 +44,14 @@ class EmailJobTest extends TestCase
             'subject' => 'Test Subject',
             'total_recipients' => 3,
         ]);
-        
+
         $this->assertDatabaseCount('email_recipients', 3);
     }
 
     public function test_user_can_create_email_job_with_csv_file(): void
     {
         Storage::fake('local');
-        
+
         $user = User::factory()->create();
         $smtp = SmtpConfiguration::factory()->create(['user_id' => $user->id]);
 
@@ -191,7 +191,7 @@ class EmailJobTest extends TestCase
 
         $response->assertRedirect();
         $job = EmailJob::where('user_id', $user->id)->first();
-        
+
         // Should only have 2 unique emails
         $this->assertEquals(2, $job->total_recipients);
     }

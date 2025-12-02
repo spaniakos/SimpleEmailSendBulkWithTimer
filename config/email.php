@@ -16,4 +16,3 @@ return [
         'seconds' => env('EMAIL_RATE_LIMIT_SECONDS', 10),
     ],
 ];
-

@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class UploadController extends Controller
@@ -20,20 +18,20 @@ class UploadController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'error' => $validator->errors()->first('file')
+                'error' => $validator->errors()->first('file'),
             ], 422);
         }
 
         $file = $request->file('file');
-        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-        
+        $filename = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
+
         // Store in public/images directory
         $file->move(public_path('images'), $filename);
-        
-        $url = asset('images/' . $filename);
+
+        $url = asset('images/'.$filename);
 
         return response()->json([
-            'location' => $url
+            'location' => $url,
         ]);
     }
 
@@ -48,21 +46,20 @@ class UploadController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'error' => $validator->errors()->first('file')
+                'error' => $validator->errors()->first('file'),
             ], 422);
         }
 
         $file = $request->file('file');
-        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-        
+        $filename = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
+
         // Store in public/pdf directory
         $file->move(public_path('pdf'), $filename);
-        
-        $url = asset('pdf/' . $filename);
+
+        $url = asset('pdf/'.$filename);
 
         return response()->json([
-            'location' => $url
+            'location' => $url,
         ]);
     }
 }
-

@@ -146,10 +146,10 @@ class SmtpConfigurationTest extends TestCase
         ]);
 
         $config = SmtpConfiguration::where('user_id', $user->id)->first();
-        
+
         // Password should be encrypted in database
         $this->assertNotEquals($password, $config->getAttributes()['password']);
-        
+
         // But accessible decrypted via accessor
         $this->assertEquals($password, $config->password);
     }
