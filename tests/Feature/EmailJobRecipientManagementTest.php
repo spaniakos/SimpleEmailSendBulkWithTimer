@@ -172,7 +172,11 @@ class EmailJobRecipientManagementTest extends TestCase
         $list = MailingList::create(['user_id' => $owner->id, 'name' => 'Selected list']);
         $included = Contact::create(['user_id' => $owner->id, 'email_address' => 'included@example.com']);
         $available = Contact::create(['user_id' => $owner->id, 'email_address' => 'available@example.net']);
-        $unsubscribed = Contact::create(['user_id' => $owner->id, 'email_address' => 'unsubscribed@example.org']);
+        $unsubscribed = Contact::create([
+            'user_id' => $owner->id,
+            'email_address' => 'unsubscribed@example.org',
+            'unsubscribed_at' => now(),
+        ]);
         $list->contacts()->attach([$included->id, $available->id, $unsubscribed->id]);
         $job = EmailJob::factory()->create([
             'user_id' => $owner->id,
