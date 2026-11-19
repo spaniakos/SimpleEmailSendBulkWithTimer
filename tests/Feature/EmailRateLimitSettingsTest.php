@@ -170,4 +170,53 @@ class EmailRateLimitSettingsTest extends TestCase
         $this->assertSame(1, EmailRecipient::where('status', 'pending')->count());
         Mail::assertSentCount(1);
     }
+
+    public function test_queued_jobs_use_rate_settings_changed_without_restarting_workers(): void
+    {
+        Mail::fake();
+        Cache::flush();
+
+        $owner = User::factory()->create();
+        $settings = $owner->emailSettings()->create([
+            'unsubscribe_footer_text' => 'Footer',
+            'max_emails_per_window' => 1,
+            'window_seconds' => 300,
+            'max_emails_per_domain' => 10,
+            'domain_window_seconds' => 300,
+        ]);
+        $smtp = SmtpConfiguration::factory()->create(['user_id' => $owner->id]);
+        $list = MailingList::create(['user_id' => $owner->id, 'name' => 'Selected']);
+        $jobs = collect(['first@gmail.com', 'second@hotmail.com'])->map(function (string $address) use ($owner, $smtp, $list) {
+            $contact = Contact::create(['user_id' => $owner->id, 'email_address' => $address]);
+            $list->contacts()->attach($contact->id);
+            $job = EmailJob::factory()->create([
+                'user_id' => $owner->id,
+                'smtp_configuration_id' => $smtp->id,
+                'mailing_list_id' => $list->id,
+                'status' => 'processing',
+                'total_recipients' => 1,
+            ]);
+            $recipient = EmailRecipient::create([
+                'email_job_id' => $job->id,
+                'contact_id' => $contact->id,
+                'email_address' => $address,
+                'domain' => substr(strrchr($address, '@'), 1),
+                'status' => 'pending',
+            ]);
+
+            return [$job, $recipient];
+        });
+
+        [$firstJob] = $jobs[0];
+        [$secondJob, $secondRecipient] = $jobs[1];
+        (new ProcessEmailJob($firstJob, $smtp))->handle();
+        (new ProcessEmailJob($secondJob, $smtp))->handle();
+
+        $this->assertSame('pending', $secondRecipient->fresh()->status);
+        $settings->update(['max_emails_per_window' => 2]);
+        (new ProcessEmailJob($secondJob, $smtp))->handle();
+
+        $this->assertSame('sent', $secondRecipient->fresh()->status);
+        Mail::assertSentCount(2);
+    }
 }
