@@ -29,7 +29,8 @@ class ProcessEmailJob implements ShouldQueue
     public function __construct(
         public EmailJob $emailJob,
         public SmtpConfiguration $smtpConfig
-    ) {}
+    ) {
+    }
 
     public function handle(): void
     {
@@ -168,7 +169,7 @@ class ProcessEmailJob implements ShouldQueue
             }
 
             $contact = $recipient->contact;
-            if (! $contact || (int) $contact->user_id !== (int) $this->emailJob->user_id) {
+            if ($contact === null || (int) $contact->user_id !== (int) $this->emailJob->user_id) {
                 throw new \RuntimeException('Campaign recipient is not linked to a contact owned by this account.');
             }
 
@@ -206,7 +207,7 @@ class ProcessEmailJob implements ShouldQueue
         $recipient->load('contact');
         $contact = $recipient->contact;
 
-        if (! $contact || $contact->unsubscribed_at === null) {
+        if ($contact === null || $contact->unsubscribed_at === null) {
             return false;
         }
 

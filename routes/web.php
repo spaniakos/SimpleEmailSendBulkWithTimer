@@ -6,8 +6,8 @@ use App\Http\Controllers\EmailSettingsController;
 use App\Http\Controllers\MailingListController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmtpConfigurationController;
-use App\Http\Controllers\UploadController;
 use App\Http\Controllers\UnsubscribeController;
+use App\Http\Controllers\UploadController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {

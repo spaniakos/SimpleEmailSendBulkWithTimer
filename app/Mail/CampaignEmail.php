@@ -21,7 +21,8 @@ class CampaignEmail extends Mailable
         public string $senderName,
         public string $unsubscribeUrl,
         public string $footerText,
-    ) {}
+    ) {
+    }
 
     public function envelope(): Envelope
     {
@@ -34,8 +35,8 @@ class CampaignEmail extends Mailable
     public function headers(): Headers
     {
         return new Headers(text: [
-                'List-Unsubscribe' => '<'.$this->unsubscribeUrl.'>',
-                'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
+            'List-Unsubscribe' => '<'.$this->unsubscribeUrl.'>',
+            'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
         ]);
     }
 
