@@ -21,8 +21,7 @@ class CampaignEmail extends Mailable
         public string $senderName,
         public string $unsubscribeUrl,
         public string $footerText,
-    ) {
-    }
+    ) {}
 
     public function envelope(): Envelope
     {
