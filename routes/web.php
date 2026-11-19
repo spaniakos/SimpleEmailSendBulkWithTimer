@@ -2,18 +2,30 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmailJobController;
+use App\Http\Controllers\EmailSettingsController;
 use App\Http\Controllers\MailingListController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmtpConfigurationController;
 use App\Http\Controllers\UploadController;
+use App\Http\Controllers\UnsubscribeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
+Route::get('/unsubscribe/{token}', [UnsubscribeController::class, 'confirm'])
+    ->where('token', '[a-f0-9]{64}')
+    ->middleware('throttle:30,1')->name('unsubscribe.confirm');
+Route::post('/unsubscribe/{token}', [UnsubscribeController::class, 'consume'])
+    ->where('token', '[a-f0-9]{64}')
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
+    ->middleware('throttle:30,1')->name('unsubscribe.consume');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/settings/email', [EmailSettingsController::class, 'edit'])->name('settings.email.edit');
+    Route::put('/settings/email', [EmailSettingsController::class, 'update'])->name('settings.email.update');
 
     // SMTP Configuration Routes
     Route::resource('smtp', SmtpConfigurationController::class);

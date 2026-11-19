@@ -22,12 +22,14 @@ class EmailJob extends Model
         'total_recipients',
         'sent_count',
         'failed_count',
+        'suppressed_count',
     ];
 
     protected $casts = [
         'total_recipients' => 'integer',
         'sent_count' => 'integer',
         'failed_count' => 'integer',
+        'suppressed_count' => 'integer',
     ];
 
     public function user(): BelongsTo
@@ -56,6 +58,8 @@ class EmailJob extends Model
             return 0;
         }
 
-        return round(($this->sent_count / $this->total_recipients) * 100, 2);
+        $completed = $this->sent_count + $this->failed_count + $this->suppressed_count;
+
+        return round(($completed / $this->total_recipients) * 100, 2);
     }
 }

@@ -18,10 +18,12 @@ class EmailRecipient extends Model
         'status',
         'sent_at',
         'error_message',
+        'suppressed_at',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
+        'suppressed_at' => 'datetime',
     ];
 
     public function emailJob(): BelongsTo
