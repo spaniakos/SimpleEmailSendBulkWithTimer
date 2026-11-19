@@ -2,9 +2,12 @@
 
 namespace App\Jobs;
 
+use App\Mail\CampaignEmail;
 use App\Models\EmailJob;
 use App\Models\EmailRecipient;
+use App\Models\EmailSettings;
 use App\Models\SmtpConfiguration;
+use App\Services\UnsubscribeTokenService;
 use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -69,7 +72,11 @@ class ProcessEmailJob implements ShouldQueue
             }
 
             foreach ($pending as $recipient) {
-                if (! $this->canSendNow($rateLimit)) {
+                if ($this->suppressIfUnsubscribed($recipient)) {
+                    continue;
+                }
+
+                if ($this->canSendNow($rateLimit) === false) {
                     Cache::forget($lockKey);
                     // Calculate remaining time until rate limit expires
                     $domain = explode('@', $this->smtpConfig->from_email)[1] ?? 'unknown';
@@ -146,7 +153,7 @@ class ProcessEmailJob implements ShouldQueue
         $cacheKey = "email_domain_last_sent_{$domain}";
 
         $last = Cache::get($cacheKey);
-        if (! $last) {
+        if ($last === null) {
             return true;
         }
 
@@ -156,15 +163,30 @@ class ProcessEmailJob implements ShouldQueue
     private function sendToRecipient($recipient): void
     {
         try {
-            $this->configureMailer();
-            Log::info("Sending email to {$recipient->email_address}");
+            if ($this->suppressIfUnsubscribed($recipient)) {
+                return;
+            }
 
-            Mail::mailer('smtp')->send([], [], function ($message) use ($recipient) {
-                $message->to($recipient->email_address)
-                    ->subject($this->emailJob->subject)
-                    ->from($this->smtpConfig->from_email, $this->smtpConfig->from_name)
-                    ->html($this->emailJob->html_content);
-            });
+            $contact = $recipient->contact;
+            if ($contact === null || (int) $contact->user_id !== (int) $this->emailJob->user_id) {
+                throw new \RuntimeException('Campaign recipient is not linked to a contact owned by this account.');
+            }
+
+            $this->configureMailer();
+            $token = app(UnsubscribeTokenService::class)->issue($contact);
+            $unsubscribeUrl = route('unsubscribe.confirm', ['token' => $token]);
+            $footerText = $this->emailJob->user->emailSettings?->unsubscribe_footer_text
+                ?? EmailSettings::DEFAULT_UNSUBSCRIBE_FOOTER_TEXT;
+
+            Log::info("Sending email to {$recipient->email_address}");
+            Mail::mailer('smtp')->to($recipient->email_address)->send(new CampaignEmail(
+                htmlContent: $this->emailJob->html_content,
+                subjectLine: $this->emailJob->subject,
+                senderEmail: $this->smtpConfig->from_email,
+                senderName: $this->smtpConfig->from_name,
+                unsubscribeUrl: $unsubscribeUrl,
+                footerText: $footerText,
+            ));
 
             $recipient->update(['status' => 'sent', 'sent_at' => now()]);
             $this->emailJob->increment('sent_count');
@@ -177,6 +199,23 @@ class ProcessEmailJob implements ShouldQueue
             $recipient->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
             $this->emailJob->increment('failed_count');
         }
+    }
+
+    private function suppressIfUnsubscribed(EmailRecipient $recipient): bool
+    {
+        $recipient->load('contact');
+        $contact = $recipient->contact;
+
+        if ($contact === null || $contact->unsubscribed_at === null) {
+            return false;
+        }
+
+        if ($recipient->status !== 'suppressed') {
+            $recipient->update(['status' => 'suppressed', 'suppressed_at' => now()]);
+            $this->emailJob->increment('suppressed_count');
+        }
+
+        return true;
     }
 
     private function configureMailer(): void
@@ -195,7 +234,7 @@ class ProcessEmailJob implements ShouldQueue
     private function finishJobIfComplete(): void
     {
         $this->emailJob->refresh();
-        $total = $this->emailJob->sent_count + $this->emailJob->failed_count;
+        $total = $this->emailJob->sent_count + $this->emailJob->failed_count + $this->emailJob->suppressed_count;
 
         if ($total >= $this->emailJob->total_recipients) {
             $this->emailJob->update([
