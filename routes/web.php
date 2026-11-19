@@ -33,6 +33,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Email Job Routes
     Route::resource('jobs', EmailJobController::class);
+    Route::post('/jobs/{job}/recipients', [EmailJobController::class, 'addRecipient'])->name('jobs.recipients.store');
+    Route::delete('/jobs/{job}/recipients/{recipient}', [EmailJobController::class, 'removeRecipient'])->name('jobs.recipients.destroy');
     Route::post('/jobs/{emailJob}/pause', [EmailJobController::class, 'pause'])->name('jobs.pause');
     Route::post('/jobs/{emailJob}/resume', [EmailJobController::class, 'resume'])->name('jobs.resume');
 
