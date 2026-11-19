@@ -2,7 +2,7 @@
 [![CI](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions/workflows/ci.yml/badge.svg)](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions)
 [![Lint](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions/workflows/lint.yml/badge.svg)](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions)
 ![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?logo=laravel&logoColor=white)
-![PHP Version](https://img.shields.io/badge/PHP-8.2-blue)
+![PHP Version](https://img.shields.io/badge/PHP-8.3%2B-blue)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Code Style: Laravel Pint](https://img.shields.io/badge/Code_Style-Laravel_Pint-orange)
 
@@ -28,7 +28,7 @@ A Laravel 12 application for sending bulk emails with rate limiting, queue manag
 
 ## 📋 Requirements
 
-- PHP 8.2 or higher
+- PHP 8.3 or higher
 - Composer
 - Node.js 18+ and NPM
 - Database (MySQL 5.7+, PostgreSQL 10+, or SQLite 3.8+)

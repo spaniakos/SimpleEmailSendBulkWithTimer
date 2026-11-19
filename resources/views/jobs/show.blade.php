@@ -158,7 +158,14 @@
                                                 {{ $recipient->sent_at ? $recipient->sent_at->format('M d, Y H:i:s') : '-' }}
                                             </td>
                                             <td class="px-6 py-4 text-sm text-red-600">
-                                                {{ $recipient->error_message ? Str::limit($recipient->error_message, 50) : '-' }}
+                                                @if($recipient->error_message)
+                                                    <details class="max-w-xl">
+                                                        <summary class="cursor-pointer font-medium">Show error details</summary>
+                                                        <pre class="mt-2 whitespace-pre-wrap break-words font-sans text-sm text-gray-700">{{ $recipient->safe_error_message }}</pre>
+                                                    </details>
+                                                @else
+                                                    -
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach
