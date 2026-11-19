@@ -2,11 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Mail\CampaignEmail;
 use App\Models\EmailJob;
 use App\Models\EmailRecipient;
-use App\Models\SmtpConfiguration;
 use App\Models\EmailSettings;
-use App\Mail\CampaignEmail;
+use App\Models\SmtpConfiguration;
 use App\Services\UnsubscribeTokenService;
 use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -29,8 +29,7 @@ class ProcessEmailJob implements ShouldQueue
     public function __construct(
         public EmailJob $emailJob,
         public SmtpConfiguration $smtpConfig
-    ) {
-    }
+    ) {}
 
     public function handle(): void
     {
