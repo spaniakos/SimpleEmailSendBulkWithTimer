@@ -86,6 +86,40 @@ class EmailJobTest extends TestCase
         $response->assertViewIs('jobs.show');
     }
 
+    public function test_failed_recipient_error_is_available_in_expandable_details(): void
+    {
+        $user = User::factory()->create();
+        $smtp = SmtpConfiguration::factory()->create([
+            'user_id' => $user->id,
+            'username' => 'smtp-account@example.test',
+            'password' => 'smtp-secret-for-test',
+        ]);
+        $job = EmailJob::factory()->create([
+            'user_id' => $user->id,
+            'smtp_configuration_id' => $smtp->id,
+        ]);
+        $error = '550 5.7.1 Recipient policy rejected this message for smtp-account@example.test (smtp-secret-for-test). '.str_repeat('More diagnostic detail. ', 6).'<script>alert(1)</script>';
+
+        EmailRecipient::factory()->create([
+            'email_job_id' => $job->id,
+            'email_address' => 'blocked@example.com',
+            'domain' => 'example.com',
+            'status' => 'failed',
+            'error_message' => $error,
+        ]);
+
+        $response = $this->actingAs($user)->get("/jobs/{$job->id}?status=failed");
+
+        $response->assertOk();
+        $response->assertSee('<details', escape: false);
+        $response->assertSee('Show error details');
+        $response->assertSee('550 5.7.1 Recipient policy rejected this message for [redacted] ([redacted]).');
+        $response->assertSee('[redacted]');
+        $response->assertDontSee('smtp-secret-for-test');
+        $response->assertDontSee('smtp-account@example.test');
+        $response->assertDontSee('<script>alert(1)</script>', escape: false);
+    }
+
     public function test_user_cannot_view_other_users_email_job(): void
     {
         $user1 = User::factory()->create();

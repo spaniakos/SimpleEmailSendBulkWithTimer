@@ -16,7 +16,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'
           extensions: pdo, pdo_sqlite
           coverage: none
       
@@ -35,7 +35,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'
           extensions: pdo, pdo_sqlite
           coverage: none
       
@@ -54,7 +54,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'
           extensions: pdo, pdo_sqlite
           coverage: none
       
@@ -85,7 +85,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'
           extensions: pdo, pdo_sqlite
           coverage: none
       
@@ -109,14 +109,14 @@ jobs:
 
   e2e-tests:
     name: E2E Tests (Playwright)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'
           extensions: pdo, pdo_sqlite
           coverage: none
       

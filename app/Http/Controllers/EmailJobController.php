@@ -6,6 +6,7 @@ use App\Jobs\ProcessEmailJob;
 use App\Models\EmailJob;
 use App\Models\EmailRecipient;
 use App\Models\SmtpConfiguration;
+use App\Support\EmailErrorSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -94,6 +95,16 @@ class EmailJobController extends Controller
         $job->load(['recipients' => function ($query) {
             $query->orderBy('id', 'asc');
         }, 'smtpConfiguration']);
+
+        $errorSanitizer = app(EmailErrorSanitizer::class);
+        $job->recipients->each(function (EmailRecipient $recipient) use ($job, $errorSanitizer): void {
+            if ($recipient->error_message !== null) {
+                $recipient->setAttribute(
+                    'safe_error_message',
+                    $errorSanitizer->sanitize($recipient->error_message, $job->smtpConfiguration),
+                );
+            }
+        });
 
         $emailJob = $job;
 
