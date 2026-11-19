@@ -38,13 +38,11 @@ class ProcessEmailJob implements ShouldQueue
         $batchSize = config('email.rate_limit.emails_per_domain', 1);
 
         // 1️⃣ Prevent Parallel Execution
-        if (Cache::has($lockKey)) {
+        if (! Cache::add($lockKey, 'worker', 60)) {
             $this->scheduleNextRun($rateLimit);
 
             return;
         }
-
-        Cache::put($lockKey, true, 60);
 
         try {
             $this->emailJob->refresh();

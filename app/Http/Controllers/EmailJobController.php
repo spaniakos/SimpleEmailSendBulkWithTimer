@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class EmailJobController extends Controller
 {
@@ -104,7 +105,27 @@ class EmailJobController extends Controller
 
         $job->load(['recipients' => function ($query) {
             $query->orderBy('id', 'asc');
-        }, 'smtpConfiguration']);
+        }, 'smtpConfiguration', 'mailingList']);
+
+        $canManageRecipients = in_array($job->status, ['pending', 'paused'], true)
+            && ! Cache::has("email_job_processing_{$job->id}")
+            && $job->mailingList !== null;
+        $availableContacts = collect();
+
+        if ($canManageRecipients) {
+            $activeContactIds = $job->recipients
+                ->where('status', '!=', 'removed')
+                ->pluck('contact_id')
+                ->filter()
+                ->all();
+
+            $availableContacts = $job->mailingList->contacts()
+                ->where('contacts.user_id', $job->user_id)
+                ->whereNull('contacts.unsubscribed_at')
+                ->when($activeContactIds !== [], fn ($query) => $query->whereNotIn('contacts.id', $activeContactIds))
+                ->orderBy('contacts.email_address')
+                ->get();
+        }
 
         $errorSanitizer = app(EmailErrorSanitizer::class);
         $job->recipients->each(function (EmailRecipient $recipient) use ($job, $errorSanitizer): void {
@@ -118,7 +139,106 @@ class EmailJobController extends Controller
 
         $emailJob = $job;
 
-        return view('jobs.show', compact('emailJob'));
+        return view('jobs.show', compact('emailJob', 'availableContacts', 'canManageRecipients'));
+    }
+
+    public function addRecipient(Request $request, EmailJob $job)
+    {
+        $this->authorize('update', $job);
+        $validated = $request->validate([
+            'contact_id' => ['required', 'integer'],
+        ]);
+
+        $this->withRecipientManagementLock($job, function (EmailJob $lockedJob) use ($validated): void {
+            $contact = $lockedJob->mailingList?->contacts()
+                ->where('contacts.id', $validated['contact_id'])
+                ->where('contacts.user_id', $lockedJob->user_id)
+                ->whereNull('contacts.unsubscribed_at')
+                ->first();
+
+            if (! $contact) {
+                throw ValidationException::withMessages([
+                    'contact_id' => 'Choose an active contact from this job’s selected list.',
+                ]);
+            }
+
+            $alreadyActive = $lockedJob->recipients()
+                ->where('contact_id', $contact->id)
+                ->where('status', '!=', 'removed')
+                ->exists();
+
+            if ($alreadyActive) {
+                throw ValidationException::withMessages([
+                    'contact_id' => 'This contact is already included in the job.',
+                ]);
+            }
+
+            EmailRecipient::create([
+                'email_job_id' => $lockedJob->id,
+                'contact_id' => $contact->id,
+                'email_address' => $contact->email_address,
+                'domain' => $this->extractDomain($contact->email_address),
+                'status' => 'pending',
+            ]);
+
+            $lockedJob->increment('total_recipients');
+        });
+
+        return redirect()->route('jobs.show', $job)->with('success', 'Recipient added to the job.');
+    }
+
+    public function removeRecipient(EmailJob $job, EmailRecipient $recipient)
+    {
+        $this->authorize('update', $job);
+
+        $this->withRecipientManagementLock($job, function (EmailJob $lockedJob) use ($recipient): void {
+            $jobRecipient = $lockedJob->recipients()->whereKey($recipient->id)->first();
+
+            if (! $jobRecipient) {
+                abort(404);
+            }
+
+            if ($jobRecipient->status !== 'pending') {
+                throw ValidationException::withMessages([
+                    'recipient' => 'Only pending recipients can be removed; sent and failed history is retained.',
+                ]);
+            }
+
+            $jobRecipient->update([
+                'status' => 'removed',
+                'removed_at' => now(),
+            ]);
+            $lockedJob->update([
+                'total_recipients' => max(0, $lockedJob->total_recipients - 1),
+            ]);
+        });
+
+        return redirect()->route('jobs.show', $job)->with('success', 'Recipient removed from the job.');
+    }
+
+    private function withRecipientManagementLock(EmailJob $job, callable $operation): mixed
+    {
+        $lockKey = "email_job_processing_{$job->id}";
+
+        if (! Cache::add($lockKey, 'recipient-management', 60)) {
+            abort(409, 'The job is currently being processed. Pause it and try again.');
+        }
+
+        try {
+            return DB::transaction(function () use ($job, $operation) {
+                $lockedJob = EmailJob::query()->whereKey($job->id)->lockForUpdate()->firstOrFail();
+
+                if (! in_array($lockedJob->status, ['pending', 'paused'], true)) {
+                    abort(409, 'Pause the job before changing its recipients.');
+                }
+
+                return $operation($lockedJob);
+            });
+        } finally {
+            if (Cache::get($lockKey) === 'recipient-management') {
+                Cache::forget($lockKey);
+            }
+        }
     }
 
     public function edit(EmailJob $job)

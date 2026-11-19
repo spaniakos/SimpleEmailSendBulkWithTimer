@@ -119,7 +119,28 @@
                         <a href="?status=sent" class="px-3 py-1 rounded {{ request('status') === 'sent' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700' }}">Sent</a>
                         <a href="?status=failed" class="px-3 py-1 rounded {{ request('status') === 'failed' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700' }}">Failed</a>
                         <a href="?status=pending" class="px-3 py-1 rounded {{ request('status') === 'pending' ? 'bg-yellow-500 text-gray-900' : 'bg-gray-200 text-gray-700' }}">Pending</a>
+                        <a href="?status=removed" class="px-3 py-1 rounded {{ request('status') === 'removed' ? 'bg-gray-600 text-white' : 'bg-gray-200 text-gray-700' }}">Removed</a>
                     </div>
+
+                    @if($canManageRecipients && $availableContacts->isNotEmpty())
+                        <form method="POST" action="{{ route('jobs.recipients.store', $emailJob) }}" class="mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+                            @csrf
+                            <div class="w-full sm:max-w-md">
+                                <label for="contact_id" class="block text-sm font-medium text-gray-700">Add recipient</label>
+                                <select id="contact_id" name="contact_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    @foreach($availableContacts as $contact)
+                                        <option value="{{ $contact->id }}">{{ $contact->email_address }}</option>
+                                    @endforeach
+                                </select>
+                                <x-input-error :messages="$errors->get('contact_id')" class="mt-2" />
+                            </div>
+                            <x-primary-button>{{ __('Add recipient') }}</x-primary-button>
+                        </form>
+                    @elseif($canManageRecipients)
+                        <p class="mb-6 text-sm text-gray-500">No additional subscribed contacts are available in this job’s selected list.</p>
+                    @elseif(in_array($emailJob->status, ['pending', 'paused']))
+                        <p class="mb-6 text-sm text-gray-500">Pause or wait for the job to stop processing before changing recipients.</p>
+                    @endif
 
                     @php
                         $filteredRecipients = $emailJob->recipients;
@@ -138,6 +159,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sent At</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -149,6 +171,7 @@
                                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                                     @if($recipient->status === 'sent') bg-green-100 text-green-800
                                                     @elseif($recipient->status === 'failed') bg-red-100 text-red-800
+                                                    @elseif($recipient->status === 'removed') bg-gray-200 text-gray-700
                                                     @else bg-yellow-100 text-yellow-800
                                                     @endif">
                                                     {{ ucfirst($recipient->status) }}
@@ -163,6 +186,17 @@
                                                         <summary class="cursor-pointer font-medium">Show error details</summary>
                                                         <pre class="mt-2 whitespace-pre-wrap break-words font-sans text-sm text-gray-700">{{ $recipient->safe_error_message }}</pre>
                                                     </details>
+                                                @else
+                                                    -
+                                                @endif
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                                @if($canManageRecipients && $recipient->status === 'pending')
+                                                    <form method="POST" action="{{ route('jobs.recipients.destroy', [$emailJob, $recipient]) }}" onsubmit="return confirm('Remove this pending recipient from the job?')">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="text-red-700 hover:text-red-900 font-medium">Remove from job</button>
+                                                    </form>
                                                 @else
                                                     -
                                                 @endif
