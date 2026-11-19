@@ -8,6 +8,7 @@ use App\Models\SmtpConfiguration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -25,17 +26,18 @@ class EmailJobTest extends TestCase
         $response->assertViewIs('jobs.index');
     }
 
-    public function test_user_can_create_email_job_with_csv_text(): void
+    public function test_user_can_create_email_job_from_a_selected_list(): void
     {
         $user = User::factory()->create();
         $smtp = SmtpConfiguration::factory()->create(['user_id' => $user->id]);
+        $listId = $this->createList($user, 'Test audience', 'email1@example.com, email2@example.com, email3@example.com');
 
         $response = $this->actingAs($user)->post('/jobs', [
             'name' => 'Test Job',
             'smtp_configuration_id' => $smtp->id,
             'subject' => 'Test Subject',
             'html_content' => '<h1>Test Content</h1>',
-            'csv_text' => 'email1@example.com, email2@example.com, email3@example.com',
+            'mailing_list_id' => $listId,
         ]);
 
         $response->assertRedirect();
@@ -48,7 +50,7 @@ class EmailJobTest extends TestCase
         $this->assertDatabaseCount('email_recipients', 3);
     }
 
-    public function test_user_can_create_email_job_with_csv_file(): void
+    public function test_user_can_create_a_list_from_a_csv_file_and_send_to_that_list(): void
     {
         Storage::fake('local');
 
@@ -57,11 +59,17 @@ class EmailJobTest extends TestCase
 
         $file = UploadedFile::fake()->createWithContent('emails.csv', "email1@example.com\nemail2@example.com\nemail3@example.com");
 
+        $this->actingAs($user)->post('/lists', [
+            'name' => 'Imported audience',
+            'csv_file' => $file,
+        ])->assertRedirect('/lists');
+        $listId = DB::table('mailing_lists')->where('user_id', $user->id)->value('id');
+
         $response = $this->actingAs($user)->post('/jobs', [
             'smtp_configuration_id' => $smtp->id,
+            'mailing_list_id' => $listId,
             'subject' => 'Test Subject',
             'html_content' => '<h1>Test Content</h1>',
-            'csv_file' => $file,
         ]);
 
         $response->assertRedirect();
@@ -211,35 +219,29 @@ class EmailJobTest extends TestCase
         ]);
     }
 
-    public function test_csv_parsing_extracts_unique_emails(): void
+    public function test_list_import_extracts_unique_normalized_emails(): void
     {
         $user = User::factory()->create();
-        $smtp = SmtpConfiguration::factory()->create(['user_id' => $user->id]);
-
-        $response = $this->actingAs($user)->post('/jobs', [
-            'smtp_configuration_id' => $smtp->id,
-            'subject' => 'Test',
-            'html_content' => '<p>Test</p>',
+        $response = $this->actingAs($user)->post('/lists', [
+            'name' => 'Import test',
             'csv_text' => 'email1@example.com, email2@example.com, email1@example.com', // duplicate
         ]);
 
-        $response->assertRedirect();
-        $job = EmailJob::where('user_id', $user->id)->first();
-
-        // Should only have 2 unique emails
-        $this->assertEquals(2, $job->total_recipients);
+        $response->assertRedirect('/lists');
+        $this->assertDatabaseCount('mailing_list_contacts', 2);
     }
 
     public function test_email_job_extracts_domains_correctly(): void
     {
         $user = User::factory()->create();
         $smtp = SmtpConfiguration::factory()->create(['user_id' => $user->id]);
+        $listId = $this->createList($user, 'Domain test', 'user1@gmail.com, user2@yahoo.com');
 
         $this->actingAs($user)->post('/jobs', [
             'smtp_configuration_id' => $smtp->id,
+            'mailing_list_id' => $listId,
             'subject' => 'Test',
             'html_content' => '<p>Test</p>',
-            'csv_text' => 'user1@gmail.com, user2@yahoo.com',
         ]);
 
         $recipient1 = EmailRecipient::where('email_address', 'user1@gmail.com')->first();
@@ -247,5 +249,15 @@ class EmailJobTest extends TestCase
 
         $this->assertEquals('gmail.com', $recipient1->domain);
         $this->assertEquals('yahoo.com', $recipient2->domain);
+    }
+
+    private function createList(User $user, string $name, string $csvText): int
+    {
+        $this->actingAs($user)->post('/lists', [
+            'name' => $name,
+            'csv_text' => $csvText,
+        ])->assertRedirect('/lists');
+
+        return (int) DB::table('mailing_lists')->where('user_id', $user->id)->where('name', $name)->value('id');
     }
 }
