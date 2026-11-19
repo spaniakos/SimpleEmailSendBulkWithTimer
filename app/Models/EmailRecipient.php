@@ -12,6 +12,7 @@ class EmailRecipient extends Model
 
     protected $fillable = [
         'email_job_id',
+        'contact_id',
         'email_address',
         'domain',
         'status',
@@ -26,5 +27,10 @@ class EmailRecipient extends Model
     public function emailJob(): BelongsTo
     {
         return $this->belongsTo(EmailJob::class);
+    }
+
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class);
     }
 }
