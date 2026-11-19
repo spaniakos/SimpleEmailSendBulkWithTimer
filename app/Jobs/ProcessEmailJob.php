@@ -29,8 +29,7 @@ class ProcessEmailJob implements ShouldQueue
     public function __construct(
         public EmailJob $emailJob,
         public SmtpConfiguration $smtpConfig
-    ) {
-    }
+    ) {}
 
     public function handle(): void
     {
@@ -77,7 +76,7 @@ class ProcessEmailJob implements ShouldQueue
                     continue;
                 }
 
-                if (!$this->canSendNow($rateLimit)) {
+                if (! $this->canSendNow($rateLimit)) {
                     Cache::forget($lockKey);
                     // Calculate remaining time until rate limit expires
                     $domain = explode('@', $this->smtpConfig->from_email)[1] ?? 'unknown';
@@ -154,7 +153,7 @@ class ProcessEmailJob implements ShouldQueue
         $cacheKey = "email_domain_last_sent_{$domain}";
 
         $last = Cache::get($cacheKey);
-        if (!$last) {
+        if (! $last) {
             return true;
         }
 
