@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\EmailSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class EmailSettingsController extends Controller
 {
@@ -30,15 +30,23 @@ class EmailSettingsController extends Controller
     {
         $validated = $request->validate([
             'unsubscribe_footer_text' => ['required', 'string', 'max:500'],
-            'max_emails_per_window' => ['required', 'integer', 'min:1', 'max:100000'],
-            'window_seconds' => ['required', 'integer', 'min:1', 'max:86400'],
-            'max_emails_per_domain' => ['required', 'integer', 'min:1', 'max:100000'],
-            'domain_window_seconds' => ['required', 'integer', 'min:1', 'max:86400'],
+            'max_emails_per_window' => ['sometimes', 'integer', 'min:1', 'max:100000'],
+            'window_seconds' => ['sometimes', 'integer', 'min:1', 'max:86400'],
+            'max_emails_per_domain' => ['sometimes', 'integer', 'min:1', 'max:100000'],
+            'domain_window_seconds' => ['sometimes', 'integer', 'min:1', 'max:86400'],
         ]);
 
         DB::transaction(function () use ($request, $validated): void {
             DB::table('users')->where('id', $request->user()->id)->lockForUpdate()->first();
-            $request->user()->emailSettings()->updateOrCreate([], $validated);
+            $settings = $request->user()->emailSettings;
+            $rateLimits = array_merge(
+                $settings?->only(array_keys(EmailSettings::rateLimitDefaults())) ?? EmailSettings::rateLimitDefaults(),
+                array_intersect_key($validated, EmailSettings::rateLimitDefaults()),
+            );
+            $request->user()->emailSettings()->updateOrCreate([], array_merge(
+                ['unsubscribe_footer_text' => $validated['unsubscribe_footer_text']],
+                $rateLimits,
+            ));
         });
 
         return redirect()->route('settings.email.edit');

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -14,6 +15,13 @@ return new class extends Migration
             $table->unsignedInteger('max_emails_per_domain')->default(1);
             $table->unsignedInteger('domain_window_seconds')->default(240);
         });
+
+        DB::table('email_settings')->update([
+            'max_emails_per_window' => max(1, (int) config('email.rate_limit.max_emails_per_window', 6)),
+            'window_seconds' => max(1, (int) config('email.rate_limit.window_seconds', 60)),
+            'max_emails_per_domain' => max(1, (int) config('email.rate_limit.max_emails_per_domain', config('email.rate_limit.emails_per_domain', 1))),
+            'domain_window_seconds' => max(1, (int) config('email.rate_limit.domain_window_seconds', config('email.rate_limit.seconds', 240))),
+        ]);
 
         Schema::create('email_send_rate_events', function (Blueprint $table) {
             $table->id();
