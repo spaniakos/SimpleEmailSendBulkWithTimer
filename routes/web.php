@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmailJobController;
+use App\Http\Controllers\MailingListController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmtpConfigurationController;
 use App\Http\Controllers\UploadController;
@@ -22,6 +23,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('jobs', EmailJobController::class);
     Route::post('/jobs/{emailJob}/pause', [EmailJobController::class, 'pause'])->name('jobs.pause');
     Route::post('/jobs/{emailJob}/resume', [EmailJobController::class, 'resume'])->name('jobs.resume');
+
+    // Mailing Lists and Contacts
+    Route::resource('lists', MailingListController::class)
+        ->parameters(['lists' => 'mailingList'])
+        ->only(['index', 'create', 'store', 'show']);
+    Route::post('/lists/{mailingList}/contacts', [MailingListController::class, 'addContacts'])->name('lists.contacts.store');
 
     // Profile Routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

@@ -14,6 +14,7 @@ class EmailJob extends Model
     protected $fillable = [
         'user_id',
         'smtp_configuration_id',
+        'mailing_list_id',
         'name',
         'subject',
         'html_content',
@@ -37,6 +38,11 @@ class EmailJob extends Model
     public function smtpConfiguration(): BelongsTo
     {
         return $this->belongsTo(SmtpConfiguration::class);
+    }
+
+    public function mailingList(): BelongsTo
+    {
+        return $this->belongsTo(MailingList::class);
     }
 
     public function recipients(): HasMany

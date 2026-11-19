@@ -20,6 +20,7 @@ A Laravel 12 application for sending bulk emails with rate limiting, queue manag
 - **Real-time Progress**: Track sent/total emails with live progress indicators
 - **SMTP Management**: Manage multiple SMTP configurations per user
 - **CSV Import**: Import recipients from CSV files or paste email addresses
+- **Reusable Mailing Lists**: Import, organize, and reuse contacts across email jobs
 - **Rich HTML Editor**: TinyMCE WYSIWYG editor for creating beautiful emails
 - **File Uploads**: Upload images and PDFs directly in the email editor
 - **User Authentication**: Secure authentication with Laravel Breeze

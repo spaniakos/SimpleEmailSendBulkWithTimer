@@ -18,6 +18,9 @@
                     <x-nav-link :href="route('jobs.index')" :active="request()->routeIs('jobs.*')">
                         {{ __('Email Jobs') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('lists.index')" :active="request()->routeIs('lists.*')">
+                        {{ __('Mailing Lists') }}
+                    </x-nav-link>
                     <x-nav-link :href="route('smtp.index')" :active="request()->routeIs('smtp.*')">
                         {{ __('SMTP Configurations') }}
                     </x-nav-link>
@@ -78,6 +81,9 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('jobs.index')" :active="request()->routeIs('jobs.*')">
                 {{ __('Email Jobs') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('lists.index')" :active="request()->routeIs('lists.*')">
+                {{ __('Mailing Lists') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('smtp.index')" :active="request()->routeIs('smtp.*')">
                 {{ __('SMTP Configurations') }}

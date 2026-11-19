@@ -10,6 +10,7 @@ use App\Support\EmailErrorSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class EmailJobController extends Controller
 {
@@ -23,8 +24,12 @@ class EmailJobController extends Controller
     public function create()
     {
         $smtpConfigurations = Auth::user()->smtpConfigurations()->get();
+        $mailingLists = Auth::user()->mailingLists()
+            ->withCount(['contacts as subscribed_contacts_count' => fn ($query) => $query->whereNull('unsubscribed_at')])
+            ->orderBy('name')
+            ->get();
 
-        return view('jobs.create', compact('smtpConfigurations'));
+        return view('jobs.create', compact('smtpConfigurations', 'mailingLists'));
     }
 
     public function store(Request $request)
@@ -32,6 +37,7 @@ class EmailJobController extends Controller
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
             'smtp_configuration_id' => 'required|exists:smtp_configurations,id',
+            'mailing_list_id' => ['required', 'integer'],
             'subject' => 'required|string|max:255',
             'html_content' => ['required', 'string', function ($attribute, $value, $fail) {
                 // Check if content is meaningful (not just empty tags)
@@ -40,8 +46,6 @@ class EmailJobController extends Controller
                     $fail('The email content cannot be empty.');
                 }
             }],
-            'csv_file' => 'nullable|file|mimes:csv,txt|max:10240',
-            'csv_text' => 'nullable|string',
         ]);
 
         // Verify SMTP config belongs to user
@@ -49,37 +53,43 @@ class EmailJobController extends Controller
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
-        // Parse CSV
-        $emails = $this->parseCsv($request);
+        // Scope list lookup to the authenticated owner to prevent cross-account sends.
+        $mailingList = Auth::user()->mailingLists()->findOrFail($validated['mailing_list_id']);
+        $contacts = $mailingList->contacts()
+            ->whereNull('unsubscribed_at')
+            ->orderBy('contacts.id')
+            ->get();
 
-        if (empty($emails)) {
-            return back()->withErrors(['csv' => 'No valid email addresses found.'])->withInput();
+        if ($contacts->isEmpty()) {
+            return back()->withErrors(['mailing_list_id' => 'The selected list has no subscribed contacts.'])->withInput();
         }
 
-        // Create email job
-        $emailJob = EmailJob::create([
-            'user_id' => Auth::id(),
-            'smtp_configuration_id' => $smtpConfig->id,
-            'name' => $validated['name'] ?? 'Email Job '.now()->format('Y-m-d H:i:s'),
-            'subject' => $validated['subject'],
-            'html_content' => $validated['html_content'],
-            'status' => 'pending',
-            'total_recipients' => count($emails),
-            'sent_count' => 0,
-            'failed_count' => 0,
-        ]);
-
-        // Create recipients
-        foreach ($emails as $email) {
-            $domain = $this->extractDomain($email);
-
-            EmailRecipient::create([
-                'email_job_id' => $emailJob->id,
-                'email_address' => $email,
-                'domain' => $domain,
+        $emailJob = DB::transaction(function () use ($validated, $smtpConfig, $mailingList, $contacts): EmailJob {
+            $emailJob = EmailJob::create([
+                'user_id' => Auth::id(),
+                'smtp_configuration_id' => $smtpConfig->id,
+                'mailing_list_id' => $mailingList->id,
+                'name' => $validated['name'] ?? 'Email Job '.now()->format('Y-m-d H:i:s'),
+                'subject' => $validated['subject'],
+                'html_content' => $validated['html_content'],
                 'status' => 'pending',
+                'total_recipients' => $contacts->count(),
+                'sent_count' => 0,
+                'failed_count' => 0,
             ]);
-        }
+
+            foreach ($contacts as $contact) {
+                EmailRecipient::create([
+                    'email_job_id' => $emailJob->id,
+                    'contact_id' => $contact->id,
+                    'email_address' => $contact->email_address,
+                    'domain' => $this->extractDomain($contact->email_address),
+                    'status' => 'pending',
+                ]);
+            }
+
+            return $emailJob;
+        });
 
         // Dispatch single batch-processing job instead of N individual jobs
         ProcessEmailJob::dispatch($emailJob, $smtpConfig);
@@ -191,42 +201,6 @@ class EmailJobController extends Controller
         }
 
         return back()->with('success', 'Job resumed successfully.');
-    }
-
-    protected function parseCsv(Request $request): array
-    {
-        $emails = [];
-
-        if ($request->hasFile('csv_file')) {
-            $file = $request->file('csv_file');
-            $content = file_get_contents($file->getRealPath());
-        } elseif ($request->filled('csv_text')) {
-            $content = $request->csv_text;
-        } else {
-            return [];
-        }
-
-        // Parse CSV content
-        $lines = explode("\n", $content);
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line)) {
-                continue;
-            }
-
-            // Handle CSV format (comma or semicolon separated)
-            $parts = str_getcsv($line);
-
-            foreach ($parts as $part) {
-                $part = trim($part);
-                if (filter_var($part, FILTER_VALIDATE_EMAIL)) {
-                    $emails[] = strtolower($part);
-                }
-            }
-        }
-
-        // Remove duplicates
-        return array_unique($emails);
     }
 
     protected function extractDomain(string $email): string

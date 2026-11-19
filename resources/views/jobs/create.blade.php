@@ -46,6 +46,25 @@
                             @endif
                         </div>
 
+                        <!-- Mailing List -->
+                        <div class="mb-4">
+                            <x-input-label for="mailing_list_id" :value="__('Recipient List')" />
+                            <select id="mailing_list_id" name="mailing_list_id" class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                                <option value="">Select a recipient list</option>
+                                @foreach($mailingLists as $mailingList)
+                                    <option value="{{ $mailingList->id }}" {{ old('mailing_list_id') == $mailingList->id ? 'selected' : '' }}>
+                                        {{ $mailingList->name }} ({{ $mailingList->subscribed_contacts_count }} subscribed contacts)
+                                    </option>
+                                @endforeach
+                            </select>
+                            @if($mailingLists->isEmpty())
+                                <p class="mt-2 text-sm text-gray-600">
+                                    Create a list and import contacts before starting a job.
+                                    <a href="{{ route('lists.create') }}" class="text-blue-600 hover:text-blue-800">Create a mailing list</a>
+                                </p>
+                            @endif
+                        </div>
+
                         <!-- Subject -->
                         <div class="mb-4">
                             <x-input-label for="subject" :value="__('Email Subject')" />
@@ -58,20 +77,6 @@
                             <textarea id="html_content" name="html_content" class="mt-1 w-full">{{ old('html_content', '') }}</textarea>
                             <p class="mt-2 text-sm text-gray-600">Use the editor above to format your email content. Images and PDFs can be uploaded directly.</p>
                             <p class="mt-1 text-xs text-red-600 hidden" id="html_content_error">Please enter email content.</p>
-                        </div>
-
-                        <!-- CSV Upload -->
-                        <div class="mb-4">
-                            <x-input-label for="csv_file" :value="__('CSV File (Optional)')" />
-                            <input id="csv_file" type="file" name="csv_file" accept=".csv,.txt" class="block mt-1 w-full">
-                            <p class="mt-2 text-sm text-gray-600">Upload a CSV file with email addresses (one per line or comma-separated)</p>
-                        </div>
-
-                        <!-- OR CSV Text -->
-                        <div class="mb-4">
-                            <x-input-label for="csv_text" :value="__('OR Paste Email Addresses')" />
-                            <textarea id="csv_text" name="csv_text" rows="5" class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="email1@example.com, email2@example.com">{{ old('csv_text') }}</textarea>
-                            <p class="mt-2 text-sm text-gray-600">Paste email addresses separated by commas or new lines</p>
                         </div>
 
                         <div class="flex items-center justify-end mt-4">

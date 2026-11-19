@@ -121,6 +121,53 @@ class MailingListTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_unsubscribed_contact_stays_suppressed_when_imported_into_another_list(): void
+    {
+        Queue::fake();
+        $owner = User::factory()->create();
+        $smtp = SmtpConfiguration::factory()->create(['user_id' => $owner->id]);
+        $this->createList($owner, 'First project', 'opted-out@example.com');
+        DB::table('contacts')
+            ->where('user_id', $owner->id)
+            ->where('email_address', 'opted-out@example.com')
+            ->update(['unsubscribed_at' => now()]);
+
+        $secondListId = $this->createList(
+            $owner,
+            'New project',
+            'opted-out@example.com, active@example.com',
+        );
+
+        $this->assertNotNull(DB::table('contacts')
+            ->where('user_id', $owner->id)
+            ->where('email_address', 'opted-out@example.com')
+            ->value('unsubscribed_at'));
+        $this->assertDatabaseCount('contacts', 2);
+
+        $response = $this->actingAs($owner)->post('/jobs', [
+            'smtp_configuration_id' => $smtp->id,
+            'mailing_list_id' => $secondListId,
+            'subject' => 'New project announcement',
+            'html_content' => '<p>Project news</p>',
+        ]);
+
+        $response->assertRedirect();
+        $jobId = DB::table('email_jobs')->where('user_id', $owner->id)->value('id');
+        $this->assertDatabaseHas('email_jobs', [
+            'id' => $jobId,
+            'total_recipients' => 1,
+        ]);
+        $this->assertDatabaseCount('email_recipients', 1);
+        $this->assertDatabaseHas('email_recipients', [
+            'email_job_id' => $jobId,
+            'email_address' => 'active@example.com',
+        ]);
+        $this->assertDatabaseMissing('email_recipients', [
+            'email_job_id' => $jobId,
+            'email_address' => 'opted-out@example.com',
+        ]);
+    }
+
     private function createList(User $owner, string $name, string $csvText): int
     {
         $response = $this->actingAs($owner)->post('/lists', [
