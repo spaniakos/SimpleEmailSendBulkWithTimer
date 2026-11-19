@@ -13,7 +13,7 @@ A Laravel 12 application for sending bulk emails with rate limiting, queue manag
 ## 🚀 Features
 
 - **Bulk Email Sending**: Send emails to thousands of recipients efficiently
-- **Rate Limiting**: Configurable rate limiting per sender domain to prevent spam
+- **Rate Limiting**: Configurable account-wide and recipient-domain rolling limits
 - **Queue Management**: Database-based queue system for reliable background processing
 - **Batch Processing**: Intelligent batch processing with automatic continuation
 - **Job Management**: Create, pause, resume, and delete email jobs
@@ -75,9 +75,11 @@ QUEUE_CONNECTION=database
 SESSION_DRIVER=database
 CACHE_DRIVER=database
 
-# Email Rate Limiting (optional - defaults shown)
-MAIL_RATE_LIMIT_COUNT=1      # Number of emails to process per batch (also controls batch size)
-EMAIL_RATE_LIMIT_SECONDS=10  # Time window in seconds between emails to the same domain
+# Rate-limit defaults for accounts before they save custom settings
+MAIL_MAX_EMAILS_PER_WINDOW=6
+MAIL_RATE_LIMIT_WINDOW_SECONDS=60
+MAIL_MAX_EMAILS_PER_DOMAIN=1
+MAIL_DOMAIN_RATE_LIMIT_SECONDS=240
 ```
 
 7. Run migrations:
@@ -274,9 +276,9 @@ Jane Smith,jane@example.com,Company B
 The application uses a **batch processing architecture** for efficient email sending:
 
 - **ProcessEmailJob**: A single queue job that processes recipients in batches
-- **Batch Size**: Controlled by `MAIL_RATE_LIMIT_COUNT` (default: 1)
+- **Rate Limits**: Account-wide and recipient-domain rolling windows are configurable in Email Settings
 - **Automatic Continuation**: The job automatically dispatches itself for the next batch when more recipients remain
-- **Rate Limiting**: Built-in rate limiting per sender domain
+- **Rate Limiting**: Built-in account-wide and recipient-domain rolling limits
 
 ### Benefits
 
@@ -288,24 +290,27 @@ The application uses a **batch processing architecture** for efficient email sen
 
 ## ⏱️ Rate Limiting
 
-The system enforces a configurable rate limit per **sender domain** (not recipient domain) to prevent sending too many emails too quickly. By default, it's set to **1 email per 10 seconds per sender domain**.
+The system enforces two account-wide rolling limits: a maximum number of attempts across all campaigns in a time window, and a maximum number for each **recipient domain** (such as gmail.com) in its own window. The conservative defaults allow up to 6 attempts per 60 seconds overall and 1 attempt per recipient domain per 240 seconds.
 
 ### Configuration
 
-You can customize the rate limiting and batch size in your `.env` file:
+Rate limits can be changed in **Email Settings** while campaigns are queued or processing. Active workers read current settings whenever they reserve the next recipient; no queue restart is required. `.env` variables provide defaults for accounts that have not saved their own settings:
 
 ```env
-MAIL_RATE_LIMIT_COUNT=1      # Number of emails to process per batch (also controls batch size)
-EMAIL_RATE_LIMIT_SECONDS=10  # Time window in seconds between emails from the same sender domain
+MAIL_MAX_EMAILS_PER_WINDOW=6
+MAIL_RATE_LIMIT_WINDOW_SECONDS=60
+MAIL_MAX_EMAILS_PER_DOMAIN=1
+MAIL_DOMAIN_RATE_LIMIT_SECONDS=240
 ```
 
 ### How It Works
 
-- **Batch Processing**: The system processes `MAIL_RATE_LIMIT_COUNT` recipients per batch
-- **Rate Limiting**: After sending an email, the system waits `EMAIL_RATE_LIMIT_SECONDS` before sending the next email from the same sender domain
-- **Automatic Queuing**: If rate limit is hit during batch processing, the job dispatches itself again after the delay
-- **Domain-Based**: Rate limiting is based on the sender's domain (from SMTP configuration), not recipient domains
-- **Example**: With `MAIL_RATE_LIMIT_COUNT=1` and `EMAIL_RATE_LIMIT_SECONDS=10`, the system will send 1 email, wait 10 seconds, then send the next email from the same sender domain
+- **Rolling global limit**: Applies across all campaigns owned by the account
+- **Rolling recipient-domain limit**: Applies to the domain after `@` in each recipient address
+- **Domain interleaving**: A capped destination is skipped while other eligible recipient domains can continue
+- **Safe setting changes**: Each reservation reads settings from the database and is serialized with settings updates; an in-flight SMTP send may finish under the settings used when its slot was reserved
+- **Automatic queuing**: When a limit is reached, pending work is rescheduled for reevaluation
+- **Deliverability**: Rate limits help control volume but cannot guarantee acceptance or prevent spam filtering; sender authentication, reputation, complaint rates, and list quality still matter
 
 ## 🔄 Queue Worker
 
@@ -366,9 +371,9 @@ All tests use database transactions and factories for clean test data.
 The application uses `ProcessEmailJob` for efficient email processing:
 
 - **One job per campaign**: When you create an email job, only one `ProcessEmailJob` is dispatched
-- **Batch processing**: Processes recipients in batches (controlled by `MAIL_RATE_LIMIT_COUNT`)
+- **Rate limiting**: Reserves each send against account-wide and recipient-domain rolling limits
 - **Self-dispatching**: Automatically dispatches itself for the next batch when more recipients remain
-- **Rate limiting**: Built-in rate limiting per sender domain with automatic delays
+- **Rate limiting**: Built-in account-wide and recipient-domain limits with automatic delays
 
 ### Deprecated Code
 
@@ -387,11 +392,10 @@ The application uses `ProcessEmailJob` for efficient email processing:
 - Check queue status on the dashboard to see if jobs are waiting
 
 ### Rate limiting issues
-- The system automatically handles rate limiting per sender domain
-- Emails are processed in batches and queued when rate limits are hit
+- The system automatically handles account-wide and recipient-domain rate limits
+- Pending addresses in a capped domain are skipped so other destinations can proceed
 - Check the job status to see pending emails
-- Adjust `MAIL_RATE_LIMIT_COUNT` to process more emails per batch
-- Adjust `EMAIL_RATE_LIMIT_SECONDS` in `.env` to change the delay between emails
+- Update the rolling rate values in **Email Settings**; workers use them without restart
 
 ### Authorization errors
 - Ensure you're logged in
