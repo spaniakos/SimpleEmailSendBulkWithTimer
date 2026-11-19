@@ -75,6 +75,8 @@ class ProcessEmailJob implements ShouldQueue
                     continue;
                 }
 
+                // Keep the campaign lease alive while scanning capped domains as well as while sending.
+                Cache::put($lockKey, 'worker', 120);
                 $reservation = app(EmailRateLimiter::class)->reserve($recipient);
                 if (! $reservation['allowed']) {
                     $retryAfter = $retryAfter === 0
@@ -88,8 +90,6 @@ class ProcessEmailJob implements ShouldQueue
                     continue;
                 }
 
-                // Refresh the lease so a campaign doing many SMTP sends cannot overlap a second worker.
-                Cache::put($lockKey, 'worker', 120);
                 $this->sendToRecipient($recipient);
             }
 
