@@ -111,7 +111,7 @@ class EmailJobTest extends TestCase
         $response->assertSee('<iframe', escape: false);
         $response->assertSee('sandbox=""', escape: false);
         $response->assertDontSee($payload, escape: false);
-        $response->assertSee('&lt;script&gt;alert(document.domain)&lt;/script&gt;');
+        $response->assertSee('&lt;script&gt;alert(document.domain)&lt;/script&gt;', escape: false);
     }
 
     public function test_failed_recipient_error_is_available_in_expandable_details(): void
