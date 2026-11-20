@@ -277,6 +277,7 @@ The application uses a **batch processing architecture** for efficient email sen
 
 - **ProcessEmailJob**: A single queue job that processes recipients in batches
 - **Rate Limits**: Account-wide and recipient-domain rolling windows are configurable in Email Settings
+- **Delivery Feedback**: Per-recipient post-send DSNs and abuse complaints can be ingested through a local MTA pipe; see [delivery feedback setup](docs/delivery-feedback.md)
 - **Automatic Continuation**: The job automatically dispatches itself for the next batch when more recipients remain
 - **Rate Limiting**: Built-in account-wide and recipient-domain rolling limits
 

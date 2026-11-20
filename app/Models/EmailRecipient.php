@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EmailRecipient extends Model
 {
@@ -22,6 +23,8 @@ class EmailRecipient extends Model
         'removed_at',
         'open_tracking_token_hash',
         'opened_at',
+        'message_id',
+        'delivery_status',
     ];
 
     protected $casts = [
@@ -39,5 +42,10 @@ class EmailRecipient extends Model
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class);
+    }
+
+    public function deliveryEvents(): HasMany
+    {
+        return $this->hasMany(EmailDeliveryEvent::class)->orderBy('occurred_at');
     }
 }
