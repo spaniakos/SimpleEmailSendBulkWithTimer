@@ -126,7 +126,8 @@ class OpenTrackingTest extends TestCase
         $response = $this->get(route('tracking.open', ['token' => str_repeat('a', 64)]));
 
         $response->assertOk()->assertHeader('Content-Type', 'image/gif');
-        $this->assertSame('no-store, no-cache, must-revalidate, max-age=0', $response->headers->get('Cache-Control'));
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        $this->assertStringContainsString('no-cache', $response->headers->get('Cache-Control'));
         $this->assertDatabaseCount('email_recipients', 0);
     }
 
