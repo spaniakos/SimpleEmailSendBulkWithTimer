@@ -1,0 +1,121 @@
+name: Security Scans
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    name: Composer and npm dependency audits
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Audit Composer dependencies
+        run: composer audit --locked --no-interaction
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
+
+  semgrep:
+    name: PHP security static analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Semgrep CLI
+        run: python -m pip install --disable-pip-version-check semgrep==1.186.0
+
+      - name: Scan PHP with Semgrep community security rules
+        run: semgrep scan --config p/security-audit --config p/php --severity ERROR --error --metrics=off .
+
+  zap-baseline:
+    name: OWASP ZAP baseline scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_sqlite
+          coverage: none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Prepare a non-debug local application
+        run: |
+          cp .env.example .env
+          sed -i 's/^APP_DEBUG=.*/APP_DEBUG=false/' .env
+          sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
+          sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env
+          sed -i 's/^QUEUE_CONNECTION=.*/QUEUE_CONNECTION=database/' .env
+          touch database/database.sqlite
+          php artisan key:generate
+          php artisan migrate --force
+          php artisan db:seed --force
+          npm ci
+          npm run build
+
+      - name: Start application for local scanning
+        run: |
+          php artisan serve --host=0.0.0.0 --port=8000 > storage/logs/security-scan-server.log 2>&1 &
+          echo $! > storage/security-scan-server.pid
+          timeout 30 bash -c 'until curl --fail --silent http://127.0.0.1:8000/ > /dev/null; do sleep 1; done'
+
+      - name: Run ZAP passive baseline scan against local application
+        run: |
+          mkdir -p security-reports
+          docker run --rm --network host \
+            -v "$GITHUB_WORKSPACE/security-reports:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://127.0.0.1:8000 -m 1 -I \
+            -r zap-baseline.html -J zap-baseline.json
+
+      - name: Stop local application
+        if: always()
+        run: |
+          if [ -f storage/security-scan-server.pid ]; then
+            kill "$(cat storage/security-scan-server.pid)" || true
+          fi
+
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: security-reports/
+          if-no-files-found: ignore
+          retention-days: 14
