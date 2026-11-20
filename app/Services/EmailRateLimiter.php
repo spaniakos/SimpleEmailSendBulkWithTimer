@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\EmailRecipient;
-use App\Models\EmailSendRateEvent;
 use App\Models\EmailSettings;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -35,16 +34,17 @@ class EmailRateLimiter
             );
 
             $retentionSeconds = max($settings->window_seconds, $settings->domain_window_seconds);
-            EmailSendRateEvent::where('user_id', $userId)
+            $events = DB::table('email_send_rate_events');
+            $events->where('user_id', $userId)
                 ->where('reserved_at', '<', $now->copy()->subSeconds($retentionSeconds))
                 ->delete();
 
             $globalSince = $now->copy()->subSeconds($settings->window_seconds);
             $domainSince = $now->copy()->subSeconds($settings->domain_window_seconds);
 
-            $globalEvents = EmailSendRateEvent::where('user_id', $userId)
+            $globalEvents = DB::table('email_send_rate_events')->where('user_id', $userId)
                 ->where('reserved_at', '>=', $globalSince);
-            $domainEvents = EmailSendRateEvent::where('user_id', $userId)
+            $domainEvents = DB::table('email_send_rate_events')->where('user_id', $userId)
                 ->where('recipient_domain', $domain)
                 ->where('reserved_at', '>=', $domainSince);
 
@@ -55,7 +55,7 @@ class EmailRateLimiter
                 $retryAfter = 0;
 
                 if ($globalLimited) {
-                    $first = EmailSendRateEvent::where('user_id', $userId)
+                    $first = DB::table('email_send_rate_events')->where('user_id', $userId)
                         ->where('reserved_at', '>=', $globalSince)
                         ->oldest('reserved_at')
                         ->value('reserved_at');
@@ -63,7 +63,7 @@ class EmailRateLimiter
                 }
 
                 if ($domainLimited) {
-                    $first = EmailSendRateEvent::where('user_id', $userId)
+                    $first = DB::table('email_send_rate_events')->where('user_id', $userId)
                         ->where('recipient_domain', $domain)
                         ->where('reserved_at', '>=', $domainSince)
                         ->oldest('reserved_at')
@@ -78,7 +78,7 @@ class EmailRateLimiter
                 ];
             }
 
-            EmailSendRateEvent::create([
+            DB::table('email_send_rate_events')->insert([
                 'user_id' => $userId,
                 'email_recipient_id' => $recipient->id,
                 'recipient_domain' => $domain,
