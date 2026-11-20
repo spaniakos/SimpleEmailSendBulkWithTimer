@@ -47,7 +47,7 @@ class EmailDeliveryReportService
         }
 
         $diagnostic = $this->cleanDiagnostic($diagnostic);
-        if (!preg_match('/^[A-Za-z0-9._-]{1,64}$/', $reportId)) {
+        if (preg_match('/^[A-Za-z0-9._-]{1,64}$/', $reportId) !== 1) {
             return false;
         }
 
