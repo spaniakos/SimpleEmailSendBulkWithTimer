@@ -27,7 +27,7 @@ class DeliveryReportParser
             $message = $parser->parse($raw, false);
             $contentType = strtolower((string) $message->getHeaderValue('Content-Type'));
 
-            if (!str_starts_with($contentType, 'multipart/report')) {
+            if (str_starts_with($contentType, 'multipart/report') === false) {
                 return null;
             }
 
