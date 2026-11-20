@@ -1,14 +1,14 @@
 [![Tests](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions/workflows/tests.yml/badge.svg)](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions)
 [![CI](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions/workflows/ci.yml/badge.svg)](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions)
 [![Lint](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions/workflows/lint.yml/badge.svg)](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions)
-![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?logo=laravel&logoColor=white)
+![Laravel](https://img.shields.io/badge/Laravel-13.x-FF2D20?logo=laravel&logoColor=white)
 ![PHP Version](https://img.shields.io/badge/PHP-8.3%2B-blue)
 ![License](https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg)
 ![Code Style: Laravel Pint](https://img.shields.io/badge/Code_Style-Laravel_Pint-orange)
 
 # Laravel Email Bulk Sender
 
-A Laravel 12 application for sending bulk emails with rate limiting, queue management, and comprehensive reporting. Perfect for marketing campaigns, newsletters, and transactional emails.
+A Laravel 13 application for sending bulk emails with rate limiting, queue management, and comprehensive reporting. Perfect for marketing campaigns, newsletters, and transactional emails.
 
 ## 🚀 Features
 
@@ -31,7 +31,7 @@ A Laravel 12 application for sending bulk emails with rate limiting, queue manag
 
 - PHP 8.3 or higher
 - Composer
-- Node.js 18+ and NPM
+- Node.js 20.19+ or 22.12+ and NPM
 - Database (MySQL 5.7+, PostgreSQL 10+, or SQLite 3.8+)
 
 ## 📦 Installation
