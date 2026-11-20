@@ -19,6 +19,9 @@ jobs:
           php-version: '8.3'
           extensions: pdo, pdo_sqlite
           coverage: none
+
+      - name: Validate Composer metadata
+        run: composer validate --strict
       
       - name: Install Composer Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
