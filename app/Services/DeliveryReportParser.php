@@ -23,11 +23,11 @@ class DeliveryReportParser
         }
 
         try {
-            $parser = new MailMimeParser();
+            $parser = new MailMimeParser;
             $message = $parser->parse($raw, false);
             $contentType = strtolower((string) $message->getHeaderValue('Content-Type'));
 
-            if (! str_starts_with($contentType, 'multipart/report')) {
+            if (!str_starts_with($contentType, 'multipart/report')) {
                 return null;
             }
 
@@ -100,7 +100,7 @@ class DeliveryReportParser
 
     private function messageId(?string $value): ?string
     {
-        if (! is_string($value) || ! preg_match('/<[^<>\s@]+@[^<>\s@]+>/', $value, $matches)) {
+        if (!is_string($value) || !preg_match('/<[^<>\s@]+@[^<>\s@]+>/', $value, $matches)) {
             return null;
         }
 
