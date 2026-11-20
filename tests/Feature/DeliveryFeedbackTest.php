@@ -8,8 +8,11 @@ use App\Models\EmailRecipient;
 use App\Models\MailingList;
 use App\Models\SmtpConfiguration;
 use App\Models\User;
+use App\Jobs\ProcessEmailJob;
 use App\Services\EmailDeliveryReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class DeliveryFeedbackTest extends TestCase
@@ -27,6 +30,41 @@ class DeliveryFeedbackTest extends TestCase
             'id' => $recipient->id,
             'delivery_status' => 'accepted',
         ]);
+    }
+
+    public function test_send_stores_a_distinct_message_id_and_sets_the_same_outbound_header(): void
+    {
+        Mail::fake();
+        Cache::flush();
+        $owner = User::factory()->create();
+        $smtp = SmtpConfiguration::factory()->create(['user_id' => $owner->id]);
+        $contact = Contact::create(['user_id' => $owner->id, 'email_address' => 'one@example.test']);
+        $list = MailingList::create(['user_id' => $owner->id, 'name' => 'Send list']);
+        $list->contacts()->attach($contact->id);
+        $job = EmailJob::factory()->create([
+            'user_id' => $owner->id,
+            'smtp_configuration_id' => $smtp->id,
+            'mailing_list_id' => $list->id,
+            'status' => 'processing',
+            'total_recipients' => 1,
+            'html_content' => '<p>Campaign message</p>',
+        ]);
+        $recipient = EmailRecipient::create([
+            'email_job_id' => $job->id,
+            'contact_id' => $contact->id,
+            'email_address' => $contact->email_address,
+            'domain' => 'example.test',
+            'status' => 'pending',
+        ]);
+
+        (new ProcessEmailJob($job, $smtp))->handle();
+
+        $storedMessageId = $recipient->fresh()->message_id;
+        $this->assertNotEmpty($storedMessageId);
+        $this->assertMatchesRegularExpression('/^<[^<>\s@]+@[^<>\s@]+>$/', $storedMessageId);
+        Mail::assertSent('App\\Mail\\CampaignEmail', function ($message) use ($storedMessageId): bool {
+            return $message->headers()->messageId === trim($storedMessageId, '<>');
+        });
     }
 
     public function test_hard_bounce_is_recorded_and_suppresses_the_contact_across_future_lists(): void
@@ -103,6 +141,47 @@ class DeliveryFeedbackTest extends TestCase
             'id' => $recipient->contact_id,
             'delivery_suppression_reason' => 'complaint',
         ]);
+    }
+
+    public function test_global_delivery_suppression_blocks_a_recipient_already_queued_in_a_later_campaign(): void
+    {
+        Mail::fake();
+        Cache::flush();
+        $firstRecipient = $this->sentRecipient();
+        app(EmailDeliveryReportService::class)->record(
+            messageId: $firstRecipient->message_id,
+            type: 'hard_bounce',
+            diagnostic: '550 5.1.1 Recipient address rejected',
+            occurredAt: now(),
+            reportId: 'global-suppression-test',
+        );
+
+        $owner = User::findOrFail($firstRecipient->emailJob->user_id);
+        $smtp = $firstRecipient->emailJob->smtpConfiguration;
+        $laterList = MailingList::create(['user_id' => $owner->id, 'name' => 'Later list']);
+        $laterList->contacts()->attach($firstRecipient->contact_id);
+        $laterJob = EmailJob::factory()->create([
+            'user_id' => $owner->id,
+            'smtp_configuration_id' => $smtp->id,
+            'mailing_list_id' => $laterList->id,
+            'status' => 'processing',
+            'total_recipients' => 1,
+            'html_content' => '<p>Later campaign</p>',
+        ]);
+        $laterRecipient = EmailRecipient::create([
+            'email_job_id' => $laterJob->id,
+            'contact_id' => $firstRecipient->contact_id,
+            'email_address' => $firstRecipient->email_address,
+            'domain' => $firstRecipient->domain,
+            'status' => 'pending',
+        ]);
+
+        (new ProcessEmailJob($laterJob, $smtp))->handle();
+
+        $this->assertSame('suppressed', $laterRecipient->fresh()->status);
+        $this->assertSame(0, $laterJob->fresh()->sent_count);
+        $this->assertSame(1, $laterJob->fresh()->suppressed_count);
+        Mail::assertNothingOutgoing();
     }
 
     public function test_unmatched_and_duplicate_reports_are_safe_idempotent_no_ops(): void
