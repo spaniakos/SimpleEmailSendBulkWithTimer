@@ -32,7 +32,7 @@ A Laravel 13 application for sending bulk emails with rate limiting, queue manag
 - PHP 8.3 or higher
 - Composer
 - Node.js 20.19+ or 22.12+ and NPM
-- Database (MySQL 5.7+, PostgreSQL 10+, or SQLite 3.8+)
+- Database (MySQL 5.7+, PostgreSQL 10+, or SQLite 3.26+)
 
 ## 📦 Installation
 
