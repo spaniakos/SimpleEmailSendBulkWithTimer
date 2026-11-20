@@ -1,0 +1,18 @@
+From: Mail Delivery Subsystem <mailer-daemon@example.test>
+Subject: Delivery Status Notification (Failure)
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status; boundary="dsn-boundary"
+
+--dsn-boundary
+Content-Type: text/plain; charset=utf-8
+
+The message could not be delivered.
+--dsn-boundary
+Content-Type: message/delivery-status
+
+Original-Message-ID: <random-message-id@example.test>
+Final-Recipient: rfc822; subscriber@example.test
+Action: failed
+Status: 5.1.1
+Diagnostic-Code: smtp; 550 5.1.1 No such user
+--dsn-boundary--

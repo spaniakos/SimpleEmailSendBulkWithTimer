@@ -98,6 +98,23 @@ class DeliveryFeedbackTest extends TestCase
         $this->assertFalse($otherList->contacts()->whereKey($recipient->contact_id)->exists());
     }
 
+    public function test_raw_delivery_report_is_ingested_once_without_retaining_the_report_body(): void
+    {
+        $recipient = $this->sentRecipient();
+        $rawReport = file_get_contents(base_path('tests/Fixtures/email/correlated-hard-bounce.eml'));
+        $service = app(EmailDeliveryReportService::class);
+
+        $this->assertTrue($service->ingestRaw($rawReport));
+        $this->assertFalse($service->ingestRaw($rawReport));
+        $this->assertDatabaseCount('email_delivery_events', 1);
+        $this->assertDatabaseHas('email_delivery_events', [
+            'email_recipient_id' => $recipient->id,
+            'type' => 'hard_bounce',
+            'diagnostic' => '550 5.1.1 No such user',
+        ]);
+        $this->assertDatabaseMissing('email_delivery_events', ['diagnostic' => $rawReport]);
+    }
+
     public function test_soft_bounce_is_recorded_without_global_suppression_or_retry(): void
     {
         $recipient = $this->sentRecipient();
