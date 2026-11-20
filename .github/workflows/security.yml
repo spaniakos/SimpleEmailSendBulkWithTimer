@@ -101,6 +101,7 @@ jobs:
       - name: Run ZAP passive baseline scan against local application
         run: |
           mkdir -p security-reports
+          chmod 0777 security-reports
           docker run --rm --network host \
             -v "$GITHUB_WORKSPACE/security-reports:/zap/wrk/:rw" \
             ghcr.io/zaproxy/zaproxy:stable \
