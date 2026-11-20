@@ -13,7 +13,9 @@ class EmailDeliveryReportService
 {
     private const TYPES = ['hard_bounce', 'soft_bounce', 'complaint', 'delivered', 'rejected'];
 
-    public function __construct(private readonly DeliveryReportParser $parser) {}
+    public function __construct(private readonly DeliveryReportParser $parser)
+    {
+    }
 
     public function ingestRaw(string $raw): bool
     {
