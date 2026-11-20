@@ -42,7 +42,7 @@ class EmailDeliveryReportService
 
     public function record(string $messageId, string $type, ?string $diagnostic, Carbon $occurredAt, string $reportId): bool
     {
-        if (!in_array($type, self::TYPES, true) || !preg_match('/^<[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+>$/', $messageId)) {
+        if (in_array($type, self::TYPES, true) === false || preg_match('/^<[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+>$/', $messageId)) {
             return false;
         }
 
