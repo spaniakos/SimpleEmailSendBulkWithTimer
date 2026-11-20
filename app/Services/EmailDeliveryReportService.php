@@ -5,17 +5,15 @@ namespace App\Services;
 use App\Models\Contact;
 use App\Models\EmailDeliveryEvent;
 use App\Models\EmailRecipient;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Database\QueryException;
 
 class EmailDeliveryReportService
 {
     private const TYPES = ['hard_bounce', 'soft_bounce', 'complaint', 'delivered', 'rejected'];
 
-    public function __construct(private readonly DeliveryReportParser $parser)
-    {
-    }
+    public function __construct(private readonly DeliveryReportParser $parser) {}
 
     public function ingestRaw(string $raw): bool
     {
