@@ -129,4 +129,50 @@ class OpenTrackingTest extends TestCase
         $this->assertSame('no-store, no-cache, must-revalidate, max-age=0', $response->headers->get('Cache-Control'));
         $this->assertDatabaseCount('email_recipients', 0);
     }
+
+    public function test_message_details_show_tracking_state_for_each_recipient_and_the_aggregate_count(): void
+    {
+        $owner = User::factory()->create();
+        $smtp = SmtpConfiguration::factory()->create(['user_id' => $owner->id]);
+        $contact = Contact::create([
+            'user_id' => $owner->id,
+            'email_address' => 'opened@example.com',
+        ]);
+        $list = MailingList::create(['user_id' => $owner->id, 'name' => 'News']);
+        $list->contacts()->attach($contact->id);
+        $job = EmailJob::factory()->create([
+            'user_id' => $owner->id,
+            'smtp_configuration_id' => $smtp->id,
+            'mailing_list_id' => $list->id,
+            'status' => 'completed',
+            'total_recipients' => 2,
+            'sent_count' => 2,
+            'html_content' => '<p>Campaign message</p>',
+            'track_opens' => true,
+        ]);
+        EmailRecipient::create([
+            'email_job_id' => $job->id,
+            'contact_id' => $contact->id,
+            'email_address' => $contact->email_address,
+            'domain' => 'example.com',
+            'status' => 'sent',
+            'sent_at' => now(),
+            'opened_at' => now(),
+        ]);
+        EmailRecipient::create([
+            'email_job_id' => $job->id,
+            'contact_id' => $contact->id,
+            'email_address' => 'not-opened@example.com',
+            'domain' => 'example.com',
+            'status' => 'sent',
+            'sent_at' => now(),
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('jobs.show', $job))
+            ->assertOk()
+            ->assertSee('Opened')
+            ->assertSee('Not opened')
+            ->assertSee('approximate unique recipients');
+    }
 }
