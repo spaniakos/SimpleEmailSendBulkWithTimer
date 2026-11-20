@@ -75,6 +75,9 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
       - name: Prepare a non-debug local application
         run: |
           cp .env.example .env
