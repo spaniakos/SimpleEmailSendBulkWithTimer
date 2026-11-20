@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ProcessEmailJob;
 use App\Models\Contact;
 use App\Models\EmailJob;
 use App\Models\EmailRecipient;
 use App\Models\MailingList;
 use App\Models\SmtpConfiguration;
 use App\Models\User;
-use App\Jobs\ProcessEmailJob;
 use App\Services\EmailDeliveryReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
