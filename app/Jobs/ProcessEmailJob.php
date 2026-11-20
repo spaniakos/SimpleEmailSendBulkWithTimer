@@ -230,7 +230,23 @@ class ProcessEmailJob implements ShouldQueue
 
         Log::info("Scheduling next job run with {$delay}s delay (base: {$baseDelay}s + offset: {$offset}s).");
 
+        // A real queue worker can release its current job and let the configured
+        // queue honor the delay. Dispatching another job from a sync connection
+        // would execute it immediately and recursively retry until a rate window
+        // expires, so use the database queue for this delayed continuation.
+        if ($this->job !== null) {
+            $this->release($delay);
+
+            return;
+        }
+
+        $connection = config('queue.default');
+        if ($connection === 'sync') {
+            $connection = 'database';
+        }
+
         ProcessEmailJob::dispatch($this->emailJob, $this->smtpConfig)
+            ->onConnection($connection)
             ->delay(now()->addSeconds($delay));
     }
 }
