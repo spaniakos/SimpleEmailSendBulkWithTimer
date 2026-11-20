@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use InvalidArgumentException;
 use Throwable;
 use ZBateson\MailMimeParser\MailMimeParser;
 
@@ -18,11 +19,12 @@ class DeliveryReportParser
     public function parse(string $raw): ?array
     {
         if (strlen($raw) > self::MAX_REPORT_BYTES) {
-            throw new \InvalidArgumentException('Delivery report exceeds the maximum allowed size.');
+            throw new InvalidArgumentException('Delivery report exceeds the maximum allowed size.');
         }
 
         try {
-            $message = (new MailMimeParser())->parse($raw, false);
+            $parser = new MailMimeParser();
+            $message = $parser->parse($raw, false);
             $contentType = strtolower((string) $message->getHeaderValue('Content-Type'));
 
             if (! str_starts_with($contentType, 'multipart/report')) {
