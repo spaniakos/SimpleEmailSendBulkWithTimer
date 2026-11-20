@@ -100,7 +100,7 @@ class DeliveryReportParser
 
     private function messageId(?string $value): ?string
     {
-        if (!is_string($value) || !preg_match('/<[^<>\s@]+@[^<>\s@]+>/', $value, $matches)) {
+        if (is_string($value) === false || preg_match('/<[^<>\s@]+@[^<>\s@]+>/', $value, $matches)) {
             return null;
         }
 
