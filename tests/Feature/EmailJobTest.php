@@ -94,6 +94,26 @@ class EmailJobTest extends TestCase
         $response->assertViewIs('jobs.show');
     }
 
+    public function test_email_preview_sandboxes_user_supplied_html(): void
+    {
+        $user = User::factory()->create();
+        $smtp = SmtpConfiguration::factory()->create(['user_id' => $user->id]);
+        $payload = '<img src=x onerror="alert(document.domain)"><script>alert(document.domain)</script>';
+        $job = EmailJob::factory()->create([
+            'user_id' => $user->id,
+            'smtp_configuration_id' => $smtp->id,
+            'html_content' => $payload,
+        ]);
+
+        $response = $this->actingAs($user)->get("/jobs/{$job->id}");
+
+        $response->assertOk();
+        $response->assertSee('<iframe', escape: false);
+        $response->assertSee('sandbox=""', escape: false);
+        $response->assertDontSee($payload, escape: false);
+        $response->assertSee('&lt;script&gt;alert(document.domain)&lt;/script&gt;', escape: false);
+    }
+
     public function test_failed_recipient_error_is_available_in_expandable_details(): void
     {
         $user = User::factory()->create();

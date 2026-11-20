@@ -48,9 +48,14 @@
                         <div>
                             <dt class="text-sm font-medium text-gray-500 mb-2">Email Content</dt>
                             <dd class="border border-gray-300 rounded-md p-4 bg-gray-50">
-                                <div class="email-preview">
-                                    {!! $emailJob->html_content !!}
-                                </div>
+                                <iframe
+                                    class="email-preview h-96 w-full rounded border border-gray-200 bg-white"
+                                    title="Campaign email preview"
+                                    sandbox=""
+                                    referrerpolicy="no-referrer"
+                                    loading="lazy"
+                                    srcdoc="{{ $emailJob->html_content }}"
+                                ></iframe>
                             </dd>
                         </div>
                     </dl>
