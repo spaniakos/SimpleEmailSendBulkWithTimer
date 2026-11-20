@@ -19,7 +19,7 @@ jobs:
           extensions: ctype, dom, filter, hash, mbstring, openssl, pdo, tokenizer, xml
           coverage: none
       - name: Resolve the Laravel 13 runtime and test dependency graph
-        run: composer update laravel/framework laravel/tinker phpunit/phpunit --with-all-dependencies --no-interaction --prefer-dist --no-scripts
+        run: composer update laravel/framework laravel/tinker laravel/sail phpunit/phpunit --with-all-dependencies --no-interaction --prefer-dist --no-scripts
       - uses: actions/upload-artifact@v7
         with:
           name: laravel-13-composer-lock
