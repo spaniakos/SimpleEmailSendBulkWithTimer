@@ -1,0 +1,18 @@
+From: Mail Delivery Subsystem <mailer-daemon@example.test>
+Subject: Delivery Status Notification (Delay)
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status; boundary="dsn-boundary"
+
+--dsn-boundary
+Content-Type: text/plain; charset=utf-8
+
+Delivery is delayed.
+--dsn-boundary
+Content-Type: message/delivery-status
+
+Original-Message-ID: <message-def@example.test>
+Final-Recipient: rfc822; full@example.test
+Action: delayed
+Status: 4.2.2
+Diagnostic-Code: smtp; 451 4.2.2 Mailbox temporarily full
+--dsn-boundary--

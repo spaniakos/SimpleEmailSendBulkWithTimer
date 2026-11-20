@@ -1,0 +1,18 @@
+From: Feedback Loop <fbl@example.test>
+Subject: Abuse report
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=feedback-report; boundary="arf-boundary"
+
+--arf-boundary
+Content-Type: text/plain; charset=utf-8
+
+This is a complaint.
+--arf-boundary
+Content-Type: message/feedback-report
+
+Feedback-Type: abuse
+User-Agent: Example FBL
+Original-Mail-From: sender@example.test
+Original-Rcpt-To: rfc822; reader@example.test
+Original-Message-ID: <message-ghi@example.test>
+--arf-boundary--
