@@ -105,7 +105,7 @@ jobs:
             -v "$GITHUB_WORKSPACE/security-reports:/zap/wrk/:rw" \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py -t http://127.0.0.1:8000 -m 1 -I \
-            -r zap-baseline.html -J zap-baseline.json
+            -r /zap/wrk/zap-baseline.html -J /zap/wrk/zap-baseline.json
 
       - name: Stop local application
         if: always()
