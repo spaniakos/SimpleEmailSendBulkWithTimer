@@ -18,7 +18,9 @@ class MailingListController extends Controller
     {
         $mailingLists = Auth::user()->mailingLists()
             ->withCount('contacts')
-            ->withCount(['contacts as subscribed_contacts_count' => fn ($query) => $query->whereNull('unsubscribed_at')])
+            ->withCount(['contacts as subscribed_contacts_count' => fn ($query) => $query
+                ->whereNull('unsubscribed_at')
+                ->whereNull('delivery_suppression_reason')])
             ->latest()
             ->get();
 

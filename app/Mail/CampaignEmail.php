@@ -21,6 +21,7 @@ class CampaignEmail extends Mailable
         public string $senderName,
         public string $unsubscribeUrl,
         public string $footerText,
+        public string $messageId,
         public ?string $trackingUrl = null,
     ) {}
 
@@ -34,10 +35,13 @@ class CampaignEmail extends Mailable
 
     public function headers(): Headers
     {
-        return new Headers(text: [
-            'List-Unsubscribe' => '<'.$this->unsubscribeUrl.'>',
-            'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
-        ]);
+        return new Headers(
+            messageId: trim($this->messageId, '<>'),
+            text: [
+                'List-Unsubscribe' => '<'.$this->unsubscribeUrl.'>',
+                'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
+            ],
+        );
     }
 
     public function content(): Content

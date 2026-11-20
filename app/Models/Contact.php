@@ -16,12 +16,15 @@ class Contact extends Model
         'user_id',
         'email_address',
         'unsubscribed_at',
+        'delivery_suppressed_at',
+        'delivery_suppression_reason',
     ];
 
     protected function casts(): array
     {
         return [
             'unsubscribed_at' => 'datetime',
+            'delivery_suppressed_at' => 'datetime',
         ];
     }
 

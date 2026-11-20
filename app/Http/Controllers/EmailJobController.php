@@ -26,7 +26,9 @@ class EmailJobController extends Controller
     {
         $smtpConfigurations = Auth::user()->smtpConfigurations()->get();
         $mailingLists = Auth::user()->mailingLists()
-            ->withCount(['contacts as subscribed_contacts_count' => fn ($query) => $query->whereNull('unsubscribed_at')])
+            ->withCount(['contacts as subscribed_contacts_count' => fn ($query) => $query
+                ->whereNull('unsubscribed_at')
+                ->whereNull('delivery_suppression_reason')])
             ->orderBy('name')
             ->get();
 
@@ -59,6 +61,7 @@ class EmailJobController extends Controller
         $mailingList = Auth::user()->mailingLists()->findOrFail($validated['mailing_list_id']);
         $contacts = $mailingList->contacts()
             ->whereNull('unsubscribed_at')
+            ->whereNull('delivery_suppression_reason')
             ->orderBy('contacts.id')
             ->get();
 
@@ -107,7 +110,7 @@ class EmailJobController extends Controller
 
         $job->load(['recipients' => function ($query) {
             $query->orderBy('id', 'asc');
-        }, 'smtpConfiguration', 'mailingList']);
+        }, 'recipients.deliveryEvents', 'smtpConfiguration', 'mailingList']);
 
         $canManageRecipients = in_array($job->status, ['pending', 'paused'], true)
             && ! Cache::has("email_job_processing_{$job->id}")
@@ -124,6 +127,7 @@ class EmailJobController extends Controller
             $availableContacts = $job->mailingList->contacts()
                 ->where('contacts.user_id', $job->user_id)
                 ->whereNull('contacts.unsubscribed_at')
+                ->whereNull('contacts.delivery_suppression_reason')
                 ->when($activeContactIds !== [], fn ($query) => $query->whereNotIn('contacts.id', $activeContactIds))
                 ->orderBy('contacts.email_address')
                 ->get();
@@ -141,8 +145,19 @@ class EmailJobController extends Controller
 
         $emailJob = $job;
         $openedCount = $job->recipients->whereNotNull('opened_at')->count();
+        $bouncedCount = $job->recipients->where('delivery_status', 'bounced')->count();
+        $complaintCount = $job->recipients->where('delivery_status', 'complained')->count();
+        $deliveredCount = $job->recipients->where('delivery_status', 'delivered')->count();
 
-        return view('jobs.show', compact('emailJob', 'availableContacts', 'canManageRecipients', 'openedCount'));
+        return view('jobs.show', compact(
+            'emailJob',
+            'availableContacts',
+            'canManageRecipients',
+            'openedCount',
+            'bouncedCount',
+            'complaintCount',
+            'deliveredCount',
+        ));
     }
 
     public function addRecipient(Request $request, EmailJob $job)
@@ -157,6 +172,7 @@ class EmailJobController extends Controller
                 ->where('contacts.id', $validated['contact_id'])
                 ->where('contacts.user_id', $lockedJob->user_id)
                 ->whereNull('contacts.unsubscribed_at')
+                ->whereNull('contacts.delivery_suppression_reason')
                 ->first();
 
             if (! $contact) {

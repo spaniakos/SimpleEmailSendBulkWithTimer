@@ -71,7 +71,7 @@ class ProcessEmailJob implements ShouldQueue
             }
 
             foreach ($pending as $recipient) {
-                if ($this->suppressIfUnsubscribed($recipient)) {
+                if ($this->suppressIfGloballySuppressed($recipient)) {
                     continue;
                 }
 
@@ -137,7 +137,7 @@ class ProcessEmailJob implements ShouldQueue
     private function sendToRecipient($recipient): void
     {
         try {
-            if ($this->suppressIfUnsubscribed($recipient)) {
+            if ($this->suppressIfGloballySuppressed($recipient)) {
                 return;
             }
 
@@ -157,6 +157,10 @@ class ProcessEmailJob implements ShouldQueue
             }
             $footerText = $this->emailJob->user->emailSettings?->unsubscribe_footer_text
                 ?? EmailSettings::DEFAULT_UNSUBSCRIBE_FOOTER_TEXT;
+            $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost';
+            $host = strtolower((string) preg_replace('/[^a-z0-9.-]/i', '', $host));
+            $messageId = '<'.bin2hex(random_bytes(16)).'@'.($host !== '' ? $host : 'localhost').'>';
+            $recipient->update(['message_id' => $messageId]);
 
             Log::info("Sending email to {$recipient->email_address}");
             Mail::mailer('smtp')->to($recipient->email_address)->send(new CampaignEmail(
@@ -166,10 +170,11 @@ class ProcessEmailJob implements ShouldQueue
                 senderName: $this->smtpConfig->from_name,
                 unsubscribeUrl: $unsubscribeUrl,
                 footerText: $footerText,
+                messageId: $messageId,
                 trackingUrl: $trackingUrl,
             ));
 
-            $recipient->update(['status' => 'sent', 'sent_at' => now()]);
+            $recipient->update(['status' => 'sent', 'sent_at' => now(), 'delivery_status' => 'accepted']);
             $this->emailJob->increment('sent_count');
 
         } catch (Exception $e) {
@@ -179,17 +184,23 @@ class ProcessEmailJob implements ShouldQueue
         }
     }
 
-    private function suppressIfUnsubscribed(EmailRecipient $recipient): bool
+    private function suppressIfGloballySuppressed(EmailRecipient $recipient): bool
     {
         $recipient->load('contact');
         $contact = $recipient->contact;
 
-        if ($contact === null || $contact->unsubscribed_at === null) {
+        if ($contact === null || ($contact->unsubscribed_at === null && $contact->delivery_suppression_reason === null)) {
             return false;
         }
 
         if ($recipient->status !== 'suppressed') {
-            $recipient->update(['status' => 'suppressed', 'suppressed_at' => now()]);
+            $recipient->update([
+                'status' => 'suppressed',
+                'suppressed_at' => now(),
+                'error_message' => $contact->delivery_suppression_reason === null
+                    ? null
+                    : 'Globally suppressed: '.$contact->delivery_suppression_reason,
+            ]);
             $this->emailJob->increment('suppressed_count');
         }
 

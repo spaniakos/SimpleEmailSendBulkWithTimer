@@ -98,6 +98,15 @@
                                 <dt class="text-sm font-medium text-gray-500">Sent</dt>
                                 <dd class="text-2xl font-bold text-green-600">{{ $emailJob->sent_count }}</dd>
 
+                                <dt class="text-sm font-medium text-gray-500">Delivered reports</dt>
+                                <dd class="text-2xl font-bold text-green-700">{{ $deliveredCount }}</dd>
+
+                                <dt class="text-sm font-medium text-gray-500">Bounced</dt>
+                                <dd class="text-2xl font-bold text-orange-600">{{ $bouncedCount }}</dd>
+
+                                <dt class="text-sm font-medium text-gray-500">Complaints</dt>
+                                <dd class="text-2xl font-bold text-red-700">{{ $complaintCount }}</dd>
+
                                 <dt class="text-sm font-medium text-gray-500">Opened</dt>
                                 <dd class="text-2xl font-bold text-indigo-600">
                                     {{ $emailJob->track_opens ? $openedCount : 'Off' }}
@@ -170,6 +179,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Domain</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delivery feedback</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sent At</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Open</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error</th>
@@ -190,6 +200,28 @@
                                                     @endif">
                                                     {{ ucfirst($recipient->status) }}
                                                 </span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-700">
+                                                @if($recipient->deliveryEvents->isNotEmpty())
+                                                    <ul class="space-y-2">
+                                                        @foreach($recipient->deliveryEvents as $event)
+                                                            <li>
+                                                                <span class="font-medium">{{ ucfirst(str_replace('_', ' ', $event->type)) }}</span>
+                                                                <span class="text-xs text-gray-500">{{ $event->occurred_at->format('M d, Y H:i:s') }}</span>
+                                                                @if($event->diagnostic)
+                                                                    <details class="mt-1">
+                                                                        <summary class="cursor-pointer text-xs text-indigo-700">Diagnostic</summary>
+                                                                        <pre class="mt-1 whitespace-pre-wrap break-words font-sans text-xs text-gray-700">{{ $event->diagnostic }}</pre>
+                                                                    </details>
+                                                                @endif
+                                                            </li>
+                                                        @endforeach
+                                                    </ul>
+                                                @elseif($recipient->delivery_status === 'accepted')
+                                                    <span class="text-gray-500">Accepted by SMTP; final delivery unknown</span>
+                                                @else
+                                                    -
+                                                @endif
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {{ $recipient->sent_at ? $recipient->sent_at->format('M d, Y H:i:s') : '-' }}
