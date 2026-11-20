@@ -13,8 +13,8 @@ jobs:
         with:
           php-version: '8.3'
           coverage: none
-      - name: Resolve current compatible dependency releases
-        run: composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress
+      - name: Update only packages reported by the Composer audit
+        run: composer update guzzlehttp/guzzle guzzlehttp/psr7 laravel/framework league/commonmark league/flysystem phpunit/phpunit psy/psysh symfony/http-foundation symfony/http-kernel symfony/mailer symfony/mime symfony/polyfill-intl-idn symfony/process symfony/routing symfony/yaml --with-all-dependencies --no-interaction --prefer-dist --no-progress
       - name: Audit refreshed dependency graph
         run: composer audit --locked --no-interaction
       - name: Emit compressed lockfile for maintainer review
