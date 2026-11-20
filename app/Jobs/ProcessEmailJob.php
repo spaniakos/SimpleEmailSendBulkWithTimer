@@ -7,6 +7,7 @@ use App\Models\EmailJob;
 use App\Models\EmailRecipient;
 use App\Models\EmailSettings;
 use App\Models\SmtpConfiguration;
+use App\Services\EmailRateLimiter;
 use App\Services\UnsubscribeTokenService;
 use Exception;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,12 +35,12 @@ class ProcessEmailJob implements ShouldQueue
     public function handle(): void
     {
         $lockKey = "email_job_processing_{$this->emailJob->id}";
-        $rateLimit = config('email.rate_limit.seconds', 10);
-        $batchSize = config('email.rate_limit.emails_per_domain', 1);
+        $retryAfter = 0;
+        $defaultDelay = max(1, (int) config('email.rate_limit.seconds', 10));
 
         // 1️⃣ Prevent Parallel Execution
-        if (! Cache::add($lockKey, 'worker', 60)) {
-            $this->scheduleNextRun($rateLimit);
+        if (! Cache::add($lockKey, 'worker', 120)) {
+            $this->scheduleNextRun($defaultDelay);
 
             return;
         }
@@ -58,11 +59,11 @@ class ProcessEmailJob implements ShouldQueue
             // 3️⃣ Process a batch of recipients
             $pending = EmailRecipient::where('email_job_id', $this->emailJob->id)
                 ->where('status', 'pending')
+                ->with('emailJob')
                 ->orderBy('id')
-                ->limit($batchSize)
-                ->get();
+                ->lazyById(100);
 
-            if ($pending->isEmpty()) {
+            if (! EmailRecipient::where('email_job_id', $this->emailJob->id)->where('status', 'pending')->exists()) {
                 $this->finishJobIfComplete();
                 Cache::forget($lockKey);
 
@@ -74,21 +75,19 @@ class ProcessEmailJob implements ShouldQueue
                     continue;
                 }
 
-                if ($this->canSendNow($rateLimit) === false) {
-                    Cache::forget($lockKey);
-                    // Calculate remaining time until rate limit expires
-                    $domain = explode('@', $this->smtpConfig->from_email)[1] ?? 'unknown';
-                    $cacheKey = "email_domain_last_sent_{$domain}";
-                    $lastSent = Cache::get($cacheKey);
-                    if ($lastSent) {
-                        $timeSinceLastSent = now()->timestamp - $lastSent;
-                        $remainingDelay = max(0, $rateLimit - $timeSinceLastSent);
-                        $this->scheduleNextRun($remainingDelay);
-                    } else {
-                        $this->scheduleNextRun($rateLimit);
+                // Keep the campaign lease alive while scanning capped domains as well as while sending.
+                Cache::put($lockKey, 'worker', 120);
+                $reservation = app(EmailRateLimiter::class)->reserve($recipient);
+                if (! $reservation['allowed']) {
+                    $retryAfter = $retryAfter === 0
+                        ? $reservation['retry_after']
+                        : min($retryAfter, $reservation['retry_after']);
+                    if ($reservation['global_limited']) {
+                        break;
                     }
 
-                    return;
+                    // A saturated destination must not block an eligible destination later in this list.
+                    continue;
                 }
 
                 $this->sendToRecipient($recipient);
@@ -99,17 +98,7 @@ class ProcessEmailJob implements ShouldQueue
             // 4️⃣ Continue if more exist
             if ($this->hasPendingRecipients() && $this->emailJob->status !== 'paused') {
                 Cache::forget($lockKey);
-                // Calculate delay based on when last email was sent
-                $domain = explode('@', $this->smtpConfig->from_email)[1] ?? 'unknown';
-                $cacheKey = "email_domain_last_sent_{$domain}";
-                $lastSent = Cache::get($cacheKey);
-                if ($lastSent) {
-                    $timeSinceLastSent = now()->timestamp - $lastSent;
-                    $remainingDelay = max(0, $rateLimit - $timeSinceLastSent);
-                    $this->scheduleNextRun($remainingDelay);
-                } else {
-                    $this->scheduleNextRun($rateLimit);
-                }
+                $this->scheduleNextRun($retryAfter ?: $defaultDelay);
 
                 return;
             }
@@ -145,19 +134,6 @@ class ProcessEmailJob implements ShouldQueue
         return false;
     }
 
-    private function canSendNow(int $rateLimit): bool
-    {
-        $domain = explode('@', $this->smtpConfig->from_email)[1] ?? 'unknown';
-        $cacheKey = "email_domain_last_sent_{$domain}";
-
-        $last = Cache::get($cacheKey);
-        if ($last === null) {
-            return true;
-        }
-
-        return (now()->timestamp - $last) >= $rateLimit;
-    }
-
     private function sendToRecipient($recipient): void
     {
         try {
@@ -188,9 +164,6 @@ class ProcessEmailJob implements ShouldQueue
 
             $recipient->update(['status' => 'sent', 'sent_at' => now()]);
             $this->emailJob->increment('sent_count');
-
-            $domain = explode('@', $this->smtpConfig->from_email)[1] ?? 'unknown';
-            Cache::put("email_domain_last_sent_{$domain}", now()->timestamp, 3600);
 
         } catch (Exception $e) {
             Log::error("Failed email to {$recipient->email_address}: ".$e->getMessage());
@@ -257,7 +230,23 @@ class ProcessEmailJob implements ShouldQueue
 
         Log::info("Scheduling next job run with {$delay}s delay (base: {$baseDelay}s + offset: {$offset}s).");
 
+        // A real queue worker can release its current job and let the configured
+        // queue honor the delay. Dispatching another job from a sync connection
+        // would execute it immediately and recursively retry until a rate window
+        // expires, so use the database queue for this delayed continuation.
+        if ($this->job !== null) {
+            $this->release($delay);
+
+            return;
+        }
+
+        $connection = config('queue.default');
+        if ($connection === 'sync') {
+            $connection = 'database';
+        }
+
         ProcessEmailJob::dispatch($this->emailJob, $this->smtpConfig)
+            ->onConnection($connection)
             ->delay(now()->addSeconds($delay));
     }
 }
