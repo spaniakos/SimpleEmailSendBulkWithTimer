@@ -3,7 +3,7 @@
 [![Lint](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions/workflows/lint.yml/badge.svg)](https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/actions)
 ![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?logo=laravel&logoColor=white)
 ![PHP Version](https://img.shields.io/badge/PHP-8.3%2B-blue)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
+![License](https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg)
 ![Code Style: Laravel Pint](https://img.shields.io/badge/Code_Style-Laravel_Pint-orange)
 
 # Laravel Email Bulk Sender
@@ -439,4 +439,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is open-sourced software licensed under the [MIT License](LICENSE).
+This project is licensed under the [GNU Affero General Public License, version 3 only](LICENSE) (`AGPL-3.0-only`).
+
+Commercial use under AGPL is permitted when the license terms are followed, including the network source-code provisions. An optional separate commercial agreement may be available under negotiated terms. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md); it does not add fees or restrictions to the public AGPL license.

@@ -1,10 +1,15 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "spaniakos/simple-email-send-bulk-with-timer",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
-    "license": "MIT",
+    "description": "A self-hosted email campaign manager with mailing lists, rate-limited database queues, and delivery reporting.",
+    "keywords": ["laravel", "email", "newsletter", "campaigns", "self-hosted", "agpl"],
+    "license": "AGPL-3.0-only",
+    "homepage": "https://github.com/spaniakos/SimpleEmailSendBulkWithTimer",
+    "support": {
+        "issues": "https://github.com/spaniakos/SimpleEmailSendBulkWithTimer/issues",
+        "source": "https://github.com/spaniakos/SimpleEmailSendBulkWithTimer"
+    },
     "require": {
         "php": "^8.3",
         "laravel/framework": "^12.0",
