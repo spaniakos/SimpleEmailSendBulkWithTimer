@@ -1,0 +1,22 @@
+name: Temporary dependency refresh
+on:
+  push:
+    branches: [chore/dependency-lock-refresh]
+permissions:
+  contents: read
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Resolve current compatible dependency releases
+        run: composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress
+      - name: Emit compressed lockfile for maintainer review
+        run: |
+          printf 'LOCKFILE_GZIP_BASE64_BEGIN\n'
+          gzip -c composer.lock | base64 -w0
+          printf '\nLOCKFILE_GZIP_BASE64_END\n'
