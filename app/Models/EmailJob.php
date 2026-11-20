@@ -23,6 +23,7 @@ class EmailJob extends Model
         'sent_count',
         'failed_count',
         'suppressed_count',
+        'track_opens',
     ];
 
     protected $casts = [
@@ -30,6 +31,7 @@ class EmailJob extends Model
         'sent_count' => 'integer',
         'failed_count' => 'integer',
         'suppressed_count' => 'integer',
+        'track_opens' => 'boolean',
     ];
 
     public function user(): BelongsTo

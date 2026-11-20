@@ -73,6 +73,15 @@
 
                         <!-- HTML Content -->
                         <div class="mb-4">
+                            <label for="track_opens" class="inline-flex items-center">
+                                <input id="track_opens" type="checkbox" name="track_opens" value="1" {{ old('track_opens') ? 'checked' : '' }} class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                <span class="ms-2 text-sm text-gray-700">Track opens for this campaign</span>
+                            </label>
+                            <p class="mt-1 text-xs text-gray-600">Open tracking is disabled unless selected. Open counts are approximate: image blocking and automated image fetching can affect results.</p>
+                        </div>
+
+                        <!-- HTML Content -->
+                        <div class="mb-4">
                             <x-input-label for="html_content" :value="__('HTML Content')" />
                             <textarea id="html_content" name="html_content" class="mt-1 w-full">{{ old('html_content', '') }}</textarea>
                             <p class="mt-2 text-sm text-gray-600">Use the editor above to format your email content. Images and PDFs can be uploaded directly.</p>

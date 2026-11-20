@@ -97,6 +97,14 @@
                                 
                                 <dt class="text-sm font-medium text-gray-500">Sent</dt>
                                 <dd class="text-2xl font-bold text-green-600">{{ $emailJob->sent_count }}</dd>
+
+                                <dt class="text-sm font-medium text-gray-500">Opened</dt>
+                                <dd class="text-2xl font-bold text-indigo-600">
+                                    {{ $emailJob->track_opens ? $openedCount : 'Off' }}
+                                    @if($emailJob->track_opens)
+                                        <span class="text-xs font-normal text-gray-500">approximate unique recipients</span>
+                                    @endif
+                                </dd>
                                 
                                 <dt class="text-sm font-medium text-gray-500">Failed</dt>
                                 <dd class="text-2xl font-bold text-red-600">{{ $emailJob->failed_count }}</dd>
@@ -163,6 +171,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Domain</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sent At</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Open</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                                     </tr>
@@ -184,6 +193,17 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {{ $recipient->sent_at ? $recipient->sent_at->format('M d, Y H:i:s') : '-' }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                @if(!$emailJob->track_opens)
+                                                    Off
+                                                @elseif($recipient->opened_at)
+                                                    Opened {{ $recipient->opened_at->format('M d, Y H:i:s') }}
+                                                @elseif($recipient->status === 'sent')
+                                                    Not opened
+                                                @else
+                                                    -
+                                                @endif
                                             </td>
                                             <td class="px-6 py-4 text-sm text-red-600">
                                                 @if($recipient->error_message)

@@ -149,6 +149,12 @@ class ProcessEmailJob implements ShouldQueue
             $this->configureMailer();
             $token = app(UnsubscribeTokenService::class)->issue($contact);
             $unsubscribeUrl = route('unsubscribe.confirm', ['token' => $token]);
+            $trackingUrl = null;
+            if ($this->emailJob->track_opens) {
+                $trackingToken = bin2hex(random_bytes(32));
+                $recipient->update(['open_tracking_token_hash' => hash('sha256', $trackingToken)]);
+                $trackingUrl = route('tracking.open', ['token' => $trackingToken]);
+            }
             $footerText = $this->emailJob->user->emailSettings?->unsubscribe_footer_text
                 ?? EmailSettings::DEFAULT_UNSUBSCRIBE_FOOTER_TEXT;
 
@@ -160,6 +166,7 @@ class ProcessEmailJob implements ShouldQueue
                 senderName: $this->smtpConfig->from_name,
                 unsubscribeUrl: $unsubscribeUrl,
                 footerText: $footerText,
+                trackingUrl: $trackingUrl,
             ));
 
             $recipient->update(['status' => 'sent', 'sent_at' => now()]);

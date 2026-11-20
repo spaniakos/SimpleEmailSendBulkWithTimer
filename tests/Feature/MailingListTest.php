@@ -101,6 +101,46 @@ class MailingListTest extends TestCase
         Queue::assertNothingPushed();
     }
 
+    public function test_open_tracking_is_off_by_default_and_can_be_enabled_when_creating_a_campaign(): void
+    {
+        Queue::fake();
+        $owner = User::factory()->create();
+        $smtp = SmtpConfiguration::factory()->create(['user_id' => $owner->id]);
+        $listId = $this->createList($owner, 'Campaign recipients', 'reader@example.com');
+
+        $this->actingAs($owner)->get('/jobs/create')
+            ->assertOk()
+            ->assertSee('Track opens for this campaign')
+            ->assertSee('name="track_opens"', false);
+
+        $this->actingAs($owner)->post('/jobs', [
+            'smtp_configuration_id' => $smtp->id,
+            'mailing_list_id' => $listId,
+            'subject' => 'Tracked campaign',
+            'html_content' => '<p>Tracked message</p>',
+            'track_opens' => '1',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('email_jobs', [
+            'user_id' => $owner->id,
+            'subject' => 'Tracked campaign',
+            'track_opens' => true,
+        ]);
+
+        $this->actingAs($owner)->post('/jobs', [
+            'smtp_configuration_id' => $smtp->id,
+            'mailing_list_id' => $listId,
+            'subject' => 'Untracked campaign',
+            'html_content' => '<p>Untracked message</p>',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('email_jobs', [
+            'user_id' => $owner->id,
+            'subject' => 'Untracked campaign',
+            'track_opens' => false,
+        ]);
+    }
+
     public function test_user_cannot_create_a_job_from_another_users_list(): void
     {
         Queue::fake();
