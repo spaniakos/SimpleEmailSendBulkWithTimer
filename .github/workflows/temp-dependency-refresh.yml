@@ -15,6 +15,8 @@ jobs:
           coverage: none
       - name: Resolve current compatible dependency releases
         run: composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress
+      - name: Audit refreshed dependency graph
+        run: composer audit --locked --no-interaction
       - name: Emit compressed lockfile for maintainer review
         run: |
           printf 'LOCKFILE_GZIP_BASE64_BEGIN\n'
