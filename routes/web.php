@@ -4,6 +4,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmailJobController;
 use App\Http\Controllers\EmailSettingsController;
 use App\Http\Controllers\MailingListController;
+use App\Http\Controllers\OpenTrackingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SmtpConfigurationController;
 use App\Http\Controllers\UnsubscribeController;
@@ -21,6 +22,9 @@ Route::post('/unsubscribe/{token}', [UnsubscribeController::class, 'consume'])
     ->where('token', '[a-f0-9]{64}')
     ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class)
     ->middleware('throttle:30,1')->name('unsubscribe.consume');
+Route::get('/tracking/open/{token}', [OpenTrackingController::class, 'show'])
+    ->where('token', '[a-f0-9]{64}')
+    ->name('tracking.open');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

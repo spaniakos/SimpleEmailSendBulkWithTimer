@@ -47,6 +47,7 @@ class EmailJobController extends Controller
                     $fail('The email content cannot be empty.');
                 }
             }],
+            'track_opens' => ['sometimes', 'boolean'],
         ]);
 
         // Verify SMTP config belongs to user
@@ -77,6 +78,7 @@ class EmailJobController extends Controller
                 'total_recipients' => $contacts->count(),
                 'sent_count' => 0,
                 'failed_count' => 0,
+                'track_opens' => $validated['track_opens'] ?? false,
             ]);
 
             foreach ($contacts as $contact) {
@@ -138,8 +140,9 @@ class EmailJobController extends Controller
         });
 
         $emailJob = $job;
+        $openedCount = $job->recipients->whereNotNull('opened_at')->count();
 
-        return view('jobs.show', compact('emailJob', 'availableContacts', 'canManageRecipients'));
+        return view('jobs.show', compact('emailJob', 'availableContacts', 'canManageRecipients', 'openedCount'));
     }
 
     public function addRecipient(Request $request, EmailJob $job)

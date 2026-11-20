@@ -21,6 +21,7 @@ class CampaignEmail extends Mailable
         public string $senderName,
         public string $unsubscribeUrl,
         public string $footerText,
+        public ?string $trackingUrl = null,
     ) {}
 
     public function envelope(): Envelope
@@ -42,9 +43,12 @@ class CampaignEmail extends Mailable
     public function content(): Content
     {
         $footer = '<div class="unsubscribe-footer"><p>'.e($this->footerText).'</p><p><a href="'.e($this->unsubscribeUrl).'">Unsubscribe</a></p></div>';
-        $html = preg_replace('/<\/body\s*>/i', $footer.'</body>', $this->htmlContent, 1, $count);
+        $trackingPixel = $this->trackingUrl === null
+            ? ''
+            : '<img src="'.e($this->trackingUrl).'" width="1" height="1" alt="" aria-hidden="true" style="display:none!important;width:1px;height:1px;border:0">';
+        $html = preg_replace('/<\/body\s*>/i', $footer.$trackingPixel.'</body>', $this->htmlContent, 1, $count);
         if ($count === 0) {
-            $html = $this->htmlContent.$footer;
+            $html = $this->htmlContent.$footer.$trackingPixel;
         }
 
         return new Content(htmlString: $html);

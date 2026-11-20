@@ -20,12 +20,15 @@ class EmailRecipient extends Model
         'error_message',
         'suppressed_at',
         'removed_at',
+        'open_tracking_token_hash',
+        'opened_at',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
         'suppressed_at' => 'datetime',
         'removed_at' => 'datetime',
+        'opened_at' => 'datetime',
     ];
 
     public function emailJob(): BelongsTo
